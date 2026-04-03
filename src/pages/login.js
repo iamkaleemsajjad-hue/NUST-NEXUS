@@ -1,0 +1,390 @@
+import { supabase } from '../utils/supabase.js';
+import { showToast } from '../components/toast.js';
+import { router } from '../router.js';
+import gsap from 'gsap';
+
+export async function renderLoginPage() {
+  const app = document.getElementById('app');
+
+  app.innerHTML = `
+    <div class="login-split">
+      <!-- Left Panel: Branding -->
+      <div class="login-left-panel">
+        <div class="login-left-content">
+          <img src="logo.png" alt="NUST NEXUS" class="login-hero-logo" />
+          <h1 class="login-hero-title">NUST <span class="text-glow">NEXUS</span></h1>
+          <p class="login-hero-tagline">Innovating the Future</p>
+          <div class="login-hero-features">
+            <div class="hero-feature">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>Share Resources</span>
+            </div>
+            <div class="hero-feature">
+              <i class="fa-solid fa-graduation-cap"></i>
+              <span>Academic Hub</span>
+            </div>
+            <div class="hero-feature">
+              <i class="fa-solid fa-users"></i>
+              <span>Collaborate</span>
+            </div>
+          </div>
+        </div>
+        <div class="login-left-bg-glow"></div>
+      </div>
+
+      <!-- Right Panel: Login Form -->
+      <div class="login-right-panel">
+        <div class="login-right-content">
+          <div class="login-form-header">
+            <h2>Welcome Back</h2>
+            <p class="login-form-subtitle">Sign in to your account to continue</p>
+          </div>
+
+          <!-- Tabs -->
+          <div class="login-tabs">
+            <button class="login-tab active" data-tab="signin" id="tab-signin">Sign In</button>
+            <button class="login-tab" data-tab="signup" id="tab-signup">Sign Up</button>
+          </div>
+
+          <!-- Sign In Form -->
+          <form id="signin-form" class="login-form-body">
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-envelope"></i>
+                <input type="email" class="form-input" id="signin-email" placeholder="your.email@nust.edu.pk" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" class="form-input" id="signin-password" placeholder="Enter your password" required />
+                <button type="button" class="password-toggle" id="signin-toggle">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="signin-btn">
+              <i class="fa-solid fa-right-to-bracket"></i> Sign In
+            </button>
+
+            <!-- Feedback Button INSIDE the card -->
+            <div class="login-inline-feedback">
+              <button type="button" class="btn btn-ghost btn-block" id="public-feedback-btn">
+                <i class="fa-solid fa-comment-dots"></i> Send Feedback
+              </button>
+            </div>
+          </form>
+
+          <!-- Sign Up Form (hidden by default) -->
+          <form id="signup-form" class="login-form-body" style="display:none;">
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-envelope"></i>
+                <input type="email" class="form-input" id="signup-email" placeholder="your.email@nust.edu.pk" required />
+              </div>
+              <span class="form-helper">Use your NUST email (@nust.edu.pk, @seecs.edu.pk, etc.)</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" class="form-input" id="signup-password" placeholder="Create a password" required />
+                <button type="button" class="password-toggle" id="signup-toggle">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+              <div class="password-strength" id="signup-pw-strength" data-strength="0">
+                <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm Password</label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" class="form-input" id="signup-confirm" placeholder="Confirm password" required />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="signup-btn">
+              <i class="fa-solid fa-user-plus"></i> Create Account
+            </button>
+          </form>
+
+          <!-- OTP Verification (hidden) -->
+          <div id="otp-section" style="display:none;">
+            <div class="otp-header">
+              <div class="otp-icon"><i class="fa-solid fa-shield-halved"></i></div>
+              <h3>Verify Your Email</h3>
+              <p style="color:var(--text-secondary);margin-top:8px;">Enter the 6-digit code sent to your email</p>
+            </div>
+            <div class="otp-inputs" id="otp-inputs">
+              <input type="text" maxlength="1" class="otp-digit" data-index="0" />
+              <input type="text" maxlength="1" class="otp-digit" data-index="1" />
+              <input type="text" maxlength="1" class="otp-digit" data-index="2" />
+              <input type="text" maxlength="1" class="otp-digit" data-index="3" />
+              <input type="text" maxlength="1" class="otp-digit" data-index="4" />
+              <input type="text" maxlength="1" class="otp-digit" data-index="5" />
+            </div>
+            <button class="btn btn-primary btn-block" id="verify-otp-btn" style="margin-top:var(--space-xl);">
+              <i class="fa-solid fa-check-circle"></i> Verify
+            </button>
+            <p style="text-align:center;margin-top:var(--space-md);">
+              <button class="btn btn-ghost" id="resend-otp-btn">Resend Code</button>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div class="modal-overlay" id="feedback-modal" style="display:none;">
+      <div class="modal-content" style="max-width:500px;">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-comment-dots"></i> Public Feedback</h3>
+          <button class="modal-close" id="close-feedback-modal">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p style="color:var(--text-secondary);margin-bottom:var(--space-lg);">Share your thoughts — no account needed.</p>
+          <form id="feedback-form">
+            <div class="form-group">
+              <label class="form-label">Your Name (optional)</label>
+              <input type="text" class="form-input" id="feedback-name" placeholder="Anonymous" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Message *</label>
+              <textarea class="form-textarea" id="feedback-message" placeholder="What would you like us to know?" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">
+              <i class="fa-solid fa-paper-plane"></i> Submit Feedback
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  `;
+
+  initLoginEvents();
+}
+
+function initLoginEvents() {
+  // Tab switching
+  const tabSignin = document.getElementById('tab-signin');
+  const tabSignup = document.getElementById('tab-signup');
+  const signinForm = document.getElementById('signin-form');
+  const signupForm = document.getElementById('signup-form');
+  const otpSection = document.getElementById('otp-section');
+  const formHeader = document.querySelector('.login-form-header');
+
+  tabSignin?.addEventListener('click', () => {
+    tabSignin.classList.add('active');
+    tabSignup.classList.remove('active');
+    signinForm.style.display = 'block';
+    signupForm.style.display = 'none';
+    otpSection.style.display = 'none';
+    formHeader.querySelector('h2').textContent = 'Welcome Back';
+    formHeader.querySelector('p').textContent = 'Sign in to your account to continue';
+  });
+
+  tabSignup?.addEventListener('click', () => {
+    tabSignup.classList.add('active');
+    tabSignin.classList.remove('active');
+    signupForm.style.display = 'block';
+    signinForm.style.display = 'none';
+    otpSection.style.display = 'none';
+    formHeader.querySelector('h2').textContent = 'Create Account';
+    formHeader.querySelector('p').textContent = 'Join the NUST NEXUS community';
+  });
+
+  // Password toggles
+  setupPasswordToggle('signin-toggle', 'signin-password');
+  setupPasswordToggle('signup-toggle', 'signup-password');
+
+  // Password strength
+  document.getElementById('signup-password')?.addEventListener('input', (e) => {
+    const val = e.target.value;
+    let strength = 0;
+    if (val.length >= 8) strength++;
+    if (/[A-Z]/.test(val)) strength++;
+    if (/[0-9]/.test(val)) strength++;
+    if (/[^A-Za-z0-9]/.test(val)) strength++;
+    document.getElementById('signup-pw-strength').setAttribute('data-strength', strength);
+  });
+
+  // Sign In
+  document.getElementById('signin-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signin-email').value.trim();
+    const password = document.getElementById('signin-password').value;
+    const btn = document.getElementById('signin-btn');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      showToast(error.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In';
+    }
+    // Auth state change in main.js handles redirect
+  });
+
+  // Sign Up
+  let pendingEmail = '';
+  document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const confirm = document.getElementById('signup-confirm').value;
+    const btn = document.getElementById('signup-btn');
+
+    if (password !== confirm) {
+      showToast('Passwords do not match', 'error');
+      return;
+    }
+    if (password.length < 8) {
+      showToast('Password must be at least 8 characters', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating account...';
+
+    const { error } = await supabase.auth.signUp({ email, password });
+
+    if (error) {
+      showToast(error.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create Account';
+      return;
+    }
+
+    pendingEmail = email;
+    showToast('Verification code sent to your email!', 'success');
+
+    // Show OTP section
+    signinForm.style.display = 'none';
+    signupForm.style.display = 'none';
+    otpSection.style.display = 'block';
+    document.querySelector('.login-tabs').style.display = 'none';
+    formHeader.querySelector('h2').textContent = 'Verify Email';
+    formHeader.querySelector('p').textContent = `Code sent to ${email}`;
+
+    initOTPInputs();
+  });
+
+  // OTP Verification
+  document.getElementById('verify-otp-btn')?.addEventListener('click', async () => {
+    const digits = document.querySelectorAll('.otp-digit');
+    const otp = Array.from(digits).map(d => d.value).join('');
+
+    if (otp.length !== 6) {
+      showToast('Please enter the 6-digit code', 'warning');
+      return;
+    }
+
+    const btn = document.getElementById('verify-otp-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Verifying...';
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: pendingEmail,
+      token: otp,
+      type: 'signup',
+    });
+
+    if (error) {
+      showToast(error.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Verify';
+    } else {
+      showToast('Email verified! Setting up your profile...', 'success');
+    }
+  });
+
+  // Resend OTP
+  document.getElementById('resend-otp-btn')?.addEventListener('click', async () => {
+    const { error } = await supabase.auth.resend({ type: 'signup', email: pendingEmail });
+    if (error) showToast(error.message, 'error');
+    else showToast('New code sent!', 'success');
+  });
+
+  // Public Feedback
+  document.getElementById('public-feedback-btn')?.addEventListener('click', () => {
+    document.getElementById('feedback-modal').style.display = 'flex';
+  });
+  document.getElementById('close-feedback-modal')?.addEventListener('click', () => {
+    document.getElementById('feedback-modal').style.display = 'none';
+  });
+  document.getElementById('feedback-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'feedback-modal') e.target.style.display = 'none';
+  });
+
+  document.getElementById('feedback-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('feedback-name').value.trim() || 'Anonymous';
+    const message = document.getElementById('feedback-message').value.trim();
+
+    const { error } = await supabase.from('feedback').insert({
+      message,
+      type: 'public',
+      user_name: name,
+    });
+
+    if (error) {
+      showToast('Failed to send feedback', 'error');
+    } else {
+      showToast('Thank you for your feedback!', 'success');
+      document.getElementById('feedback-modal').style.display = 'none';
+      document.getElementById('feedback-form').reset();
+    }
+  });
+
+  // GSAP entrance animations
+  gsap.fromTo('.login-hero-logo', { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: 'back.out(1.7)' });
+  gsap.fromTo('.login-hero-title', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, delay: 0.3, ease: 'power3.out' });
+  gsap.fromTo('.login-hero-tagline', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, delay: 0.5, ease: 'power3.out' });
+  gsap.fromTo('.hero-feature', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, stagger: 0.1, delay: 0.7, ease: 'power3.out' });
+  gsap.fromTo('.login-right-content', { x: 30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, delay: 0.3, ease: 'power3.out' });
+}
+
+function setupPasswordToggle(toggleId, inputId) {
+  const toggle = document.getElementById(toggleId);
+  const input = document.getElementById(inputId);
+  toggle?.addEventListener('click', () => {
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    toggle.querySelector('i').className = isPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+  });
+}
+
+function initOTPInputs() {
+  const digits = document.querySelectorAll('.otp-digit');
+  digits.forEach((input, index) => {
+    input.value = '';
+    input.addEventListener('input', (e) => {
+      const val = e.target.value.replace(/[^0-9]/g, '');
+      e.target.value = val;
+      if (val && index < 5) digits[index + 1].focus();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !e.target.value && index > 0) {
+        digits[index - 1].focus();
+      }
+    });
+    input.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '').slice(0, 6);
+      pasted.split('').forEach((ch, i) => {
+        if (digits[i]) digits[i].value = ch;
+      });
+      if (pasted.length > 0) digits[Math.min(pasted.length, 5)].focus();
+    });
+  });
+  digits[0]?.focus();
+}
