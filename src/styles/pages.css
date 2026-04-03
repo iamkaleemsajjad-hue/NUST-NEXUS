@@ -621,8 +621,9 @@
   right: 20px;
   width: 380px;
   max-height: 500px;
-  background: var(--secondary);
-  border: 1px solid var(--grid);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   z-index: var(--z-modal);
@@ -729,10 +730,17 @@
 
 .notification-panel-header {
   padding: var(--space-lg);
-  border-bottom: 1px solid var(--grid);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  color: #FFFFFF;
+}
+.notification-panel-header h4 {
+  color: #FFFFFF;
+}
+.notification-panel-header .modal-close {
+  color: #FFFFFF;
 }
 .notification-list {
   max-height: 400px;
@@ -740,12 +748,12 @@
 }
 .notification-item {
   padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid rgba(127, 140, 141, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   gap: 12px;
   transition: background var(--transition-fast);
 }
-.notification-item:hover { background: rgba(127, 140, 141, 0.03); }
+.notification-item:hover { background: rgba(255, 255, 255, 0.05); }
 .notification-icon {
   width: 36px;
   height: 36px;
@@ -753,17 +761,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(127, 140, 141, 0.1);
-  color: var(--primary);
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
   flex-shrink: 0;
 }
 .notification-item.reply .notification-icon {
   background: rgba(0, 255, 136, 0.1);
   color: var(--success);
 }
-.notification-content strong { display: block; font-size: 0.875rem; }
-.notification-content p { color: var(--text-secondary); font-size: 0.8125rem; margin-top: 2px; }
-.notification-time { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; display: block; }
+.notification-content strong { display: block; font-size: 0.875rem; color: #FFFFFF; }
+.notification-content p { color: rgba(255, 255, 255, 0.8); font-size: 0.8125rem; margin-top: 2px; }
+.notification-time { font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); margin-top: 4px; display: block; }
+.notification-list .empty-state { color: rgba(255, 255, 255, 0.8); }
+.notification-list .empty-state p, .notification-list .empty-state i { color: rgba(255, 255, 255, 0.8); }
 
 /* ---- DASHBOARD ---- */
 .dashboard-welcome {
