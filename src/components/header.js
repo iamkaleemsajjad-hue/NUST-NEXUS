@@ -9,7 +9,7 @@ export function renderHeader(profile) {
   return `
     <header class="top-header" id="top-header">
       <div class="header-left">
-        <button class="mobile-menu-btn" id="mobile-menu-btn">
+        <button class="header-toggle-btn" id="sidebar-toggle-btn">
           <i class="fa-solid fa-bars"></i>
         </button>
         <div class="header-breadcrumb">
@@ -17,17 +17,36 @@ export function renderHeader(profile) {
         </div>
       </div>
       <div class="header-right">
+        <div class="header-clock" id="header-clock"></div>
         ${!isAdminUser ? `
           <div class="header-points points-display" id="header-points">
             <i class="fa-solid fa-coins"></i>
-            <span id="points-value">${profile?.points || 0}</span> pts
+            <span id="points-value">${profile?.points || 0}</span>
           </div>
         ` : ''}
-        <div class="header-clock" id="header-clock"></div>
         <button class="header-notification-btn" id="notification-btn">
           <i class="fa-solid fa-bell"></i>
           <span class="notification-dot" id="notification-dot" style="display:none;"></span>
         </button>
+        <div class="header-profile" id="header-profile-btn">
+          ${profile?.avatar_url
+            ? `<img src="${profile.avatar_url}" class="header-avatar" alt="Profile" />`
+            : `<div class="header-avatar header-avatar-placeholder">${(profile?.display_name || 'U').charAt(0).toUpperCase()}</div>`
+          }
+        </div>
+        <div class="profile-dropdown" id="profile-dropdown" style="display:none;">
+          <div class="dropdown-header">
+            <strong class="dropdown-name">${profile?.display_name || 'User'}</strong>
+            <span class="dropdown-role">${isAdminUser ? 'Administrator' : profile?.degree || 'Student'}</span>
+          </div>
+          <div class="dropdown-divider"></div>
+          <a href="#/settings" class="dropdown-item">
+            <i class="fa-solid fa-user"></i> My profile
+          </a>
+          <button class="dropdown-item text-danger" id="header-logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Log out
+          </button>
+        </div>
       </div>
     </header>
     
@@ -68,6 +87,35 @@ export function initHeader(profile) {
   updateClock();
   setInterval(updateClock, 30000);
 
+  // Profile dropdown toggle
+  const profileBtn = document.getElementById('header-profile-btn');
+  const profileDropdown = document.getElementById('profile-dropdown');
+  if (profileBtn && profileDropdown) {
+    profileBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = profileDropdown.style.display !== 'none';
+      profileDropdown.style.display = isOpen ? 'none' : 'block';
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+        profileDropdown.style.display = 'none';
+      }
+    });
+  }
+
+  // Header logout
+  const headerLogoutBtn = document.getElementById('header-logout-btn');
+  if (headerLogoutBtn) {
+    headerLogoutBtn.addEventListener('click', async () => {
+      import('../utils/supabase.js').then(async ({ supabase }) => {
+        await supabase.auth.signOut();
+        import('../router.js').then(({ router }) => router.navigate('/login'));
+      });
+    });
+  }
+
   // Notification panel toggle
   const notifBtn = document.getElementById('notification-btn');
   const notifPanel = document.getElementById('notification-panel');
@@ -86,12 +134,14 @@ export function initHeader(profile) {
     });
   }
 
-  // Mobile menu
-  const mobileBtn = document.getElementById('mobile-menu-btn');
-  if (mobileBtn) {
-    mobileBtn.addEventListener('click', () => {
+  // Make header menu button toggle the completely collapsible sidebar
+  const toggleBtn = document.getElementById('sidebar-toggle-btn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
       const sidebar = document.getElementById('sidebar');
-      sidebar?.classList.toggle('mobile-open');
+      const mainContent = document.querySelector('.main-content');
+      sidebar?.classList.toggle('collapsed');
+      mainContent?.classList.toggle('collapsed');
     });
   }
 

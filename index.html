@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="NUST NEXUS — The ultimate academic resource hub for NUST students. Share, download, and collaborate on course materials." />
-  <meta name="theme-color" content="#040B14" />
+  <meta name="theme-color" content="#F2F4F5" />
   <title>NUST NEXUS — Student Academic Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,7 +17,20 @@
   <div id="global-loader" class="global-loader active">
     <div class="loader-content">
       <div class="loader-logo">
-        <img src="/logo.png" alt="NUST NEXUS" class="loader-logo-img" />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="80" height="80" class="loader-logo-img">
+          <defs>
+            <linearGradient id="nustNexusGradLoader" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#087C9F" />
+              <stop offset="100%" stop-color="#C1E0F8" />
+            </linearGradient>
+            <filter id="nustShadowLoader" x="-10%" y="-10%" width="120%" height="120%">
+              <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="#2C3E50" flood-opacity="0.3" />
+            </filter>
+          </defs>
+          <polygon points="75,25 95,25 95,95 75,95" fill="#087C9F" />
+          <polygon points="25,25 45,25 95,95 75,95" fill="url(#nustNexusGradLoader)" filter="url(#nustShadowLoader)" />
+          <polygon points="25,25 45,25 45,95 25,95" fill="#2C3E50" />
+        </svg>
       </div>
       <div class="loader-bar">
         <div class="loader-bar-fill"></div>

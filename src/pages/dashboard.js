@@ -60,11 +60,11 @@ export async function renderDashboardPage() {
           <!-- Stats Grid -->
           <div class="grid-4 dash-stats" id="dash-stats">
             <div class="stat-card card">
-              <div class="stat-icon" style="background:rgba(0,204,255,0.1);color:var(--primary);">
+              <div class="stat-icon" style="background:rgba(241,196,15,0.1);color:#F1C40F;">
                 <i class="fa-solid fa-coins"></i>
               </div>
               <div class="stat-info">
-                <span class="stat-value" id="stat-points">${profile.points || 0}</span>
+                <span class="stat-value" id="stat-points" style="color:#F1C40F;text-shadow:0 0 10px rgba(241,196,15,0.2);">${profile.points || 0}</span>
                 <span class="stat-label">Reward Points</span>
               </div>
             </div>
@@ -87,7 +87,7 @@ export async function renderDashboardPage() {
               </div>
             </div>
             <div class="stat-card card">
-              <div class="stat-icon" style="background:rgba(255,184,0,0.1);color:var(--warning);">
+              <div class="stat-icon" style="background:rgba(var(--primary-rgb),0.1);color:var(--primary);">
                 <i class="fa-solid fa-book-open"></i>
               </div>
               <div class="stat-info">

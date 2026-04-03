@@ -1,5 +1,6 @@
 import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
+import { getLogoSVG } from './logo.js';
 
 /**
  * Render the sidebar with sliding marker 
@@ -42,12 +43,9 @@ export function renderSidebar(profile) {
       <!-- Sidebar Header -->
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          <img src="logo.png" alt="NUST NEXUS" class="sidebar-logo-img" />
+          ${getLogoSVG('sidebar-logo-img', '36', '36')}
           <span class="sidebar-brand">NUST NEXUS</span>
         </div>
-        <button class="sidebar-toggle" id="sidebar-toggle" title="Collapse">
-          <i class="fa-solid fa-chevron-left"></i>
-        </button>
       </div>
 
       <!-- Sidebar Navigation -->
@@ -81,46 +79,17 @@ export function renderSidebar(profile) {
         </ul>
       </nav>
 
-      <!-- Sidebar Footer -->
-      <div class="sidebar-footer">
-        <div class="sidebar-user">
-          ${profile?.avatar_url
-            ? `<img src="${profile.avatar_url}" class="avatar" alt="Profile" />`
-            : `<div class="avatar avatar-placeholder">${initials}</div>`
-          }
-          <div class="sidebar-user-info">
-            <span class="sidebar-user-name">${profile?.display_name || 'User'}</span>
-            <span class="sidebar-user-role">${isAdmin ? 'Administrator' : profile?.degree || 'Student'}</span>
-          </div>
-        </div>
-        <button class="sidebar-logout" id="sidebar-logout">
-          <i class="fa-solid fa-right-from-bracket"></i>
-          <span>Sign Out</span>
-        </button>
-      </div>
+      <!-- Sidebar Footer Removed -->
     </aside>
   `;
 }
 
 /**
- * Initialize sidebar: toggle, logout, sliding marker
+ * Initialize sidebar: toggle, logic, sliding marker
  */
 export function initSidebar() {
   const sidebar = document.getElementById('sidebar');
-  const toggle = document.getElementById('sidebar-toggle');
   const mainContent = document.querySelector('.main-content');
-
-  // Collapse/Expand
-  toggle?.addEventListener('click', () => {
-    sidebar.classList.toggle('collapsed');
-    mainContent?.classList.toggle('collapsed');
-  });
-
-  // Logout
-  document.getElementById('sidebar-logout')?.addEventListener('click', async () => {
-    await supabase.auth.signOut();
-    router.navigate('/login');
-  });
 
   // Initialize sliding indicator
   initSlidingMarker();

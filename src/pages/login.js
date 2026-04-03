@@ -2,6 +2,7 @@ import { supabase } from '../utils/supabase.js';
 import { showToast } from '../components/toast.js';
 import { router } from '../router.js';
 import gsap from 'gsap';
+import { getLogoSVG } from '../components/logo.js';
 
 export async function renderLoginPage() {
   const app = document.getElementById('app');
@@ -11,7 +12,7 @@ export async function renderLoginPage() {
       <!-- Left Panel: Branding -->
       <div class="login-left-panel">
         <div class="login-left-content">
-          <img src="logo.png" alt="NUST NEXUS" class="login-hero-logo" />
+          ${getLogoSVG('login-hero-logo', '140', '140')}
           <h1 class="login-hero-title">NUST <span class="text-glow">NEXUS</span></h1>
           <p class="login-hero-tagline">Innovating the Future</p>
           <div class="login-hero-features">
