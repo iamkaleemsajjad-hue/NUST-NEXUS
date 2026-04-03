@@ -323,7 +323,7 @@
   top: 0;
   bottom: 0;
   width: var(--sidebar-width);
-  background: linear-gradient(180deg, var(--primary), var(--accent));
+  background: linear-gradient(180deg, var(--primary), color-mix(in srgb, var(--primary) 40%, var(--accent)));
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   z-index: var(--z-sidebar);
   display: flex;
@@ -502,7 +502,7 @@
   right: 0;
   left: var(--sidebar-width);
   height: var(--header-height);
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 40%, var(--accent)));
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
