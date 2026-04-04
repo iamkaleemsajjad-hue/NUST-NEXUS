@@ -53,16 +53,23 @@ router.beforeEach = async (to) => {
 
 // Initialize app
 async function init() {
-  // Check initial auth state
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  // Hide loader
+  // Ensure loader hides even if auth checks take long or fail
   setTimeout(() => {
     const loader = document.getElementById('global-loader');
     if (loader) {
       loader.classList.remove('active');
     }
   }, 1200);
+
+  let user = null;
+  try {
+    // Check initial auth state
+    const res = await supabase.auth.getUser();
+    user = res.data?.user || null;
+  } catch (err) {
+    console.error('Auth initialization error:', err);
+  }
+
 
   // Handle initial route
   const hash = window.location.hash.slice(1);
