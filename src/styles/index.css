@@ -418,7 +418,7 @@ a:hover {
 .form-input:-webkit-autofill:hover, 
 .form-input:-webkit-autofill:focus, 
 .form-input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 30px #F2F3F4 inset !important;
+  -webkit-box-shadow: 0 0 0 30px #E7EAEB inset !important;
   -webkit-text-fill-color: var(--text-primary) !important;
   transition: background-color 5000s ease-in-out 0s;
   border-color: var(--grid);
