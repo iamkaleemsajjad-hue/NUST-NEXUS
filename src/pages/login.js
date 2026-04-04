@@ -287,8 +287,7 @@ function initLoginEvents() {
     const { error } = await supabase.auth.signInWithOtp({
       email: email,
       options: {
-        shouldCreateUser: true,
-        emailRedirectTo: 'https://iamkaleemsajjad-hue.github.io/NUST-NEXUS/'
+        shouldCreateUser: true
       }
     });
 
@@ -354,8 +353,7 @@ function initLoginEvents() {
     const { error } = await supabase.auth.signInWithOtp({
       email: pendingEmail,
       options: { 
-        shouldCreateUser: true,
-        emailRedirectTo: 'https://iamkaleemsajjad-hue.github.io/NUST-NEXUS/'
+        shouldCreateUser: true
       }
     });
     if (error) showToast(error.message, 'error');

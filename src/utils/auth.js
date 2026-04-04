@@ -34,8 +34,7 @@ export async function signUpWithEmail(email) {
   const { data, error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      shouldCreateUser: true,
-      emailRedirectTo: 'https://iamkaleemsajjad-hue.github.io/NUST-NEXUS/'
+      shouldCreateUser: true
     }
   });
   return { data, error };
