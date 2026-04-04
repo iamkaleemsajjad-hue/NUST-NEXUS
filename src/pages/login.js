@@ -3,6 +3,8 @@ import { showToast } from '../components/toast.js';
 import { router } from '../router.js';
 import gsap from 'gsap';
 import { getLogoSVG } from '../components/logo.js';
+import { validatePassword } from '../utils/validators.js';
+import { sanitizeText, validateFields, sanitizeEmail, checkRateLimit, pickAllowedFields } from '../utils/sanitize.js';
 
 export async function renderLoginPage() {
   const app = document.getElementById('app');
@@ -218,9 +220,20 @@ function initLoginEvents() {
   // Sign In
   document.getElementById('signin-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('signin-email').value.trim();
+    const { valid: emailOk, email } = sanitizeEmail(document.getElementById('signin-email').value);
     const password = document.getElementById('signin-password').value;
     const btn = document.getElementById('signin-btn');
+
+    if (!emailOk) {
+      showToast('Enter a valid email address', 'error');
+      return;
+    }
+
+    const rl = checkRateLimit('signin', 12, 900000);
+    if (!rl.allowed) {
+      showToast('Too many sign-in attempts. Please wait before trying again.', 'error');
+      return;
+    }
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Signing in...';
@@ -239,17 +252,31 @@ function initLoginEvents() {
   let pendingEmail = '';
   document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('signup-email').value.trim();
+    const emailRaw = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
     const confirm = document.getElementById('signup-confirm').value;
     const btn = document.getElementById('signup-btn');
+
+    const { valid: emailOk, email } = sanitizeEmail(emailRaw);
+    if (!emailOk) {
+      showToast('Enter a valid NUST email address', 'error');
+      return;
+    }
+
+    const rl = checkRateLimit('signup', 3, 300000); // Max 3 signups per 5 mins
+    
+    if (!rl.allowed) {
+      showToast(`Too many attempts. Please wait ${Math.ceil(rl.remainingMs/60000)} minutes`, 'error');
+      return;
+    }
 
     if (password !== confirm) {
       showToast('Passwords do not match', 'error');
       return;
     }
-    if (password.length < 8) {
-      showToast('Password must be at least 8 characters', 'error');
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.isValid) {
+      showToast(pwCheck.errors[0], 'error');
       return;
     }
 
@@ -260,6 +287,9 @@ function initLoginEvents() {
 
     if (error) {
       showToast(error.message, 'error');
+      if (error.message.includes('rate limit')) {
+        showToast('Supabase email limit reached. Please configure custom SMTP in Supabase dashboard.', 'warning');
+      }
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create Account';
       return;
@@ -328,14 +358,35 @@ function initLoginEvents() {
 
   document.getElementById('feedback-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('feedback-name').value.trim() || 'Anonymous';
-    const message = document.getElementById('feedback-message').value.trim();
 
-    const { error } = await supabase.from('feedback').insert({
-      message,
-      type: 'public',
-      user_name: name,
-    });
+    const rl = checkRateLimit('feedback_public', 5, 3600000);
+    if (!rl.allowed) {
+      showToast('Too many feedback submissions. Try again later.', 'error');
+      return;
+    }
+
+    const name = sanitizeText(document.getElementById('feedback-name').value || 'Anonymous', 80) || 'Anonymous';
+    const message = sanitizeText(document.getElementById('feedback-message').value, 4000);
+    const { isValid, errors } = validateFields(
+      { message },
+      { message: { type: 'string', required: true, maxLength: 4000 } }
+    );
+    if (!isValid) {
+      showToast(errors[0] || 'Invalid message', 'warning');
+      return;
+    }
+
+    const row = pickAllowedFields(
+      {
+        message,
+        type: 'public',
+        name,
+        email: 'anonymous@public.feedback',
+      },
+      ['message', 'type', 'name', 'email']
+    );
+
+    const { error } = await supabase.from('feedback').insert(row);
 
     if (error) {
       showToast('Failed to send feedback', 'error');

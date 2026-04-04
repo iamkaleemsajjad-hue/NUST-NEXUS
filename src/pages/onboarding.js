@@ -4,6 +4,7 @@ import { validatePassword, getPasswordStrength } from '../utils/validators.js';
 import { calculateSemester, getSemesterLabel } from '../utils/semester.js';
 import { showToast } from '../components/toast.js';
 import { router } from '../router.js';
+import { sanitizeText } from '../utils/sanitize.js';
 import gsap from 'gsap';
 
 export async function renderOnboardingPage() {
@@ -146,7 +147,7 @@ function initOnboarding(user, parsed) {
   document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const name = document.getElementById('ob-name').value.trim();
+    const name = sanitizeText(document.getElementById('ob-name').value, 120);
     const password = document.getElementById('ob-password').value;
     const confirmPw = document.getElementById('ob-confirm-password').value;
     const terms = document.getElementById('ob-terms').checked;

@@ -1,21 +1,25 @@
+/**
+ * Local smoke test only. Run: node --env-file=.env test-login.mjs
+ * Requires: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TEST_EMAIL, TEST_PASSWORD
+ */
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://ebzfjxmdkrggwmpyhzna.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViemZqeG1ka3JnZ3dtcHloem5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTI3OTMsImV4cCI6MjA5MDAyODc5M30.5nnP2yfmT83ARJFbAE8rkvfVEs6asKqLny2K2chWiuU';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const email = process.env.TEST_EMAIL;
+const password = process.env.TEST_PASSWORD;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !email || !password) {
+  console.error('Missing env: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TEST_EMAIL, TEST_PASSWORD');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-async function testLogin() {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: 'msajjad.bscs25seecs@seecs.edu.pk',
-    password: 'Student123.',
-  });
+const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) {
-    console.error("Login Failed:", error.message);
-  } else {
-    console.log("Login Success! User ID:", data.user.id);
-  }
+if (error) {
+  console.error('Login failed:', error.message);
+  process.exit(1);
 }
-
-testLogin();
+console.log('Login OK, user:', data.user?.id);

@@ -3,6 +3,7 @@ import { renderSidebar, initSidebar } from '../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js';
 import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
+import { sanitizeText, validateFields, pickAllowedFields, escapeHtml, checkRateLimit } from '../utils/sanitize.js';
 import { router } from '../router.js';
 import gsap from 'gsap';
 
@@ -98,15 +99,64 @@ export async function renderIdeasPage() {
 
     document.getElementById('idea-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const payload = {
-        title: document.getElementById('idea-title').value.trim(),
-        description: document.getElementById('idea-desc').value.trim(),
-        category: document.getElementById('idea-category').value,
-        difficulty: document.getElementById('idea-difficulty').value,
-        user_id: user.id,
-      };
+      const rawTitle = document.getElementById('idea-title').value;
+      const rawDesc = document.getElementById('idea-desc').value;
+      const category = document.getElementById('idea-category').value;
+      const difficulty = document.getElementById('idea-difficulty').value;
 
-      const { error } = await supabase.from('project_ideas').insert(payload);
+      const title = sanitizeText(rawTitle, 120);
+      const description = sanitizeText(rawDesc, 4000);
+
+      const payload = { title, description, category, difficulty };
+
+      const { isValid, errors } = validateFields(payload, {
+        title: { type: 'string', required: true, maxLength: 120 },
+        description: { type: 'string', required: true, maxLength: 4000 },
+        category: { type: 'string', required: true, enum: ['web', 'mobile', 'ai', 'iot', 'game', 'other'] },
+        difficulty: { type: 'string', required: true, enum: ['beginner', 'intermediate', 'advanced'] },
+      });
+      if (!isValid) {
+        showToast(errors[0] || 'Check your input', 'warning');
+        return;
+      }
+
+      const rl = checkRateLimit('idea_submit', 6, 3600000);
+      if (!rl.allowed) {
+        showToast('Too many idea submissions. Try again later.', 'error');
+        return;
+      }
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Checking...';
+
+      // Check for similar ideas
+      const { checkIdeaSimilarity } = await import('../utils/idea-similarity.js');
+      const { isDuplicate, similarIdea, similarity, hash } = await checkIdeaSimilarity(supabase, title, description);
+
+      if (isDuplicate) {
+        showToast(`Similar idea already submitted by ${similarIdea?.profiles?.display_name || 'someone'} (${Math.round(similarity * 100)}% match). Try a different concept!`, 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Idea';
+        return;
+      }
+
+      submitBtn.innerHTML = '<span class="spinner"></span> Submitting...';
+
+      const row = pickAllowedFields(
+        {
+          title,
+          description,
+          category,
+          difficulty,
+          user_id: user.id,
+          idea_hash: hash,
+        },
+        ['title', 'description', 'category', 'difficulty', 'user_id', 'idea_hash']
+      );
+
+      const { error } = await supabase.from('project_ideas').insert(row);
+
       if (error) {
         showToast('Failed: ' + error.message, 'error');
       } else {
@@ -115,6 +165,8 @@ export async function renderIdeasPage() {
         document.getElementById('idea-form').reset();
         loadIdeas(profile);
       }
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Idea';
     });
   }
 
@@ -165,7 +217,7 @@ async function loadIdeas(profile) {
             </div>
           </div>
           <p style="color:var(--text-secondary);font-size:0.875rem;margin:var(--space-md) 0;line-height:1.5;">
-            ${idea.description?.substring(0, 200)}${idea.description?.length > 200 ? '...' : ''}
+            ${escapeHtml(idea.description || '').substring(0, 200)}${(idea.description?.length || 0) > 200 ? '...' : ''}
           </p>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:var(--space-md);border-top:1px solid var(--grid);">
             <span style="color:var(--text-muted);font-size:0.75rem;">

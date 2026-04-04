@@ -4,7 +4,7 @@ import { VALID_DOMAINS, ADMIN_EMAIL } from '../config.js';
  * Validate if an email belongs to NUST
  */
 export function isValidNustEmail(email) {
-  if (email === ADMIN_EMAIL) return true;
+  if (ADMIN_EMAIL && email === ADMIN_EMAIL) return true;
   const domain = email.split('@')[1];
   if (!domain) return false;
   return VALID_DOMAINS.includes(domain.toLowerCase());
@@ -17,7 +17,7 @@ export function isValidNustEmail(email) {
  *   name.bsee24smme@smme.edu.pk
  */
 export function parseNustEmail(email) {
-  if (email === ADMIN_EMAIL) {
+  if (ADMIN_EMAIL && email === ADMIN_EMAIL) {
     return { name: 'Admin', degree: 'N/A', year: null, school: 'Admin', schoolCode: 'ADMIN' };
   }
   

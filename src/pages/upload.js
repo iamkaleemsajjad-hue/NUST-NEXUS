@@ -276,9 +276,19 @@ async function loadProfessors() {
 
 async function submitUpload(profile) {
   const btn = document.getElementById('submit-upload');
-  const title = document.getElementById('upload-title').value.trim();
   
-  if (!title) { showToast('Please enter a title', 'warning'); return; }
+  // Rate limiting check
+  const { checkRateLimit, sanitizeText } = await import('../utils/sanitize.js');
+  const rl = checkRateLimit('upload', 10, 60000); // Max 10 uploads per minute
+  if (!rl.allowed) {
+    showToast(`Too many upload attempts. Please wait ${Math.ceil(rl.remainingMs/1000)}s`, 'error');
+    return;
+  }
+
+  const rawTitle = document.getElementById('upload-title').value;
+  const title = sanitizeText(rawTitle, 100);
+  
+  if (!title) { showToast('Please enter a valid title', 'warning'); return; }
   if (!uploadData.file) { showToast('Please select a file', 'warning'); return; }
 
   btn.disabled = true;
@@ -288,31 +298,33 @@ async function submitUpload(profile) {
   const fileHash = await hashFile(uploadData.file);
   const unique = await isFileUnique(supabase, fileHash);
 
-  if (!unique) {
-    showToast('This exact file has already been uploaded by someone.', 'error');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
-    return;
-  }
-
-  btn.innerHTML = '<span class="spinner"></span> Uploading...';
-
-  // Upload file to storage
-  const filePath = `${profile.id}/${Date.now()}-${uploadData.file.name}`;
-  const { error: storageError } = await supabase.storage.from('uploads').upload(filePath, uploadData.file);
-  if (storageError) {
-    showToast('File upload failed: ' + storageError.message, 'error');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
-    return;
-  }
-
-  const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(filePath);
-
-  // Determine status and points
+  let fileUrl = null;
+  let status = 'rejected';
+  let pointsAwarded = 0;
   const isProject = uploadData.type === 'project';
-  const status = isProject ? 'approved' : 'pending';
-  const pointsAwarded = isProject ? POINTS.UPLOAD_PROJECT : 0;
+
+  if (!unique) {
+    showToast('Duplicate file detected. Upload rejected.', 'error');
+    // Skip Storj; DB row still records rejection (red status line)
+  } else {
+    btn.innerHTML = '<span class="spinner"></span> Uploading...';
+    const filePath = `uploads/${profile.id}/${Date.now()}-${uploadData.file.name}`;
+
+    const { uploadToStorj } = await import('../utils/storj.js');
+    const storjRes = await uploadToStorj(filePath, uploadData.file);
+    fileUrl = storjRes.url;
+
+    if (storjRes.error || !fileUrl) {
+      showToast('File upload failed: ' + (storjRes.error?.message || 'Unknown error'), 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
+      return;
+    }
+
+    // Hash verified unique + file on Storj: approve so peers can browse/download (browse filters approved)
+    status = 'approved';
+    pointsAwarded = isProject ? POINTS.UPLOAD_PROJECT : POINTS.UPLOAD_GENERAL;
+  }
 
   // Insert upload record
   const { data: upload, error: insertError } = await supabase.from('uploads').insert({
@@ -322,12 +334,12 @@ async function submitUpload(profile) {
     semester: uploadData.semester,
     type: uploadData.type,
     title,
-    file_url: publicUrl,
+    file_url: fileUrl,
     file_hash: fileHash,
     file_size: uploadData.file.size,
     status,
     points_awarded: pointsAwarded,
-    reviewed_at: isProject ? new Date().toISOString() : null,
+    reviewed_at: status === 'approved' ? new Date().toISOString() : null,
   }).select().single();
 
   if (insertError) {
@@ -344,12 +356,16 @@ async function submitUpload(profile) {
     action: 'uploaded',
   });
 
-  // If project, award points immediately
-  if (isProject) {
-    await supabase.from('profiles').update({ points: (profile.points || 0) + POINTS.UPLOAD_PROJECT }).eq('id', profile.id);
-    showToast(`Project uploaded! +${POINTS.UPLOAD_PROJECT} points awarded!`, 'success');
-  } else {
-    showToast('File uploaded! It will be reviewed and points awarded in 1 hour.', 'success');
+  if (status === 'approved' && pointsAwarded > 0) {
+    await supabase.from('profiles').update({ points: (profile.points || 0) + pointsAwarded }).eq('id', profile.id);
+    showToast(
+      isProject
+        ? `Project uploaded! +${pointsAwarded} points awarded!`
+        : `Resource approved! +${pointsAwarded} points.`,
+      'success'
+    );
+  } else if (status === 'rejected') {
+    showToast('No points awarded (duplicate file).', 'warning');
   }
 
   // Reset and reload

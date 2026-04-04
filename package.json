@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:functions": "supabase functions deploy storj-upload && supabase functions deploy storj-delete",
+    "test:login": "node --env-file=.env test-login.mjs"
   },
   "devDependencies": {
     "vite": "^8.0.1"

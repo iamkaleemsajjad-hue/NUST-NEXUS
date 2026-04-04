@@ -77,6 +77,22 @@ export async function updatePassword(password) {
  * Sign out
  */
 export async function signOut() {
+  // Record logout time on the most recent login entry
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: latest } = await supabase
+      .from('login_history')
+      .select('id')
+      .eq('user_id', user.id)
+      .order('login_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (latest) {
+      await supabase.from('login_history')
+        .update({ logout_at: new Date().toISOString() })
+        .eq('id', latest.id);
+    }
+  }
   await supabase.auth.signOut();
 }
 
@@ -94,12 +110,25 @@ export async function updateProfile(userId, updates) {
 }
 
 /**
- * Record login history
+ * Record login history (dedupe: skip if last row was within a few seconds — some clients emit SIGNED_IN twice)
  */
 export async function recordLogin(userId) {
+  const { data: recent } = await supabase
+    .from('login_history')
+    .select('login_at')
+    .eq('user_id', userId)
+    .order('login_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (recent?.login_at) {
+    const delta = Date.now() - new Date(recent.login_at).getTime();
+    if (delta < 8000) return;
+  }
+
   await supabase.from('login_history').insert({
     user_id: userId,
-    user_agent: navigator.userAgent,
+    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     ip_address: 'client',
   });
 }

@@ -2,6 +2,7 @@ import './styles/index.css';
 import './styles/pages.css';
 import { router } from './router.js';
 import { supabase } from './utils/supabase.js';
+import { recordLogin } from './utils/auth.js';
 import { renderLoginPage } from './pages/login.js';
 import { renderOnboardingPage } from './pages/onboarding.js';
 import { renderDashboardPage } from './pages/dashboard.js';
@@ -94,6 +95,14 @@ async function init() {
       router.navigate('/login');
     } else if (event === 'SIGNED_IN') {
       const user = session?.user;
+      // Persist login row for dashboard "Login History" (logout time filled on signOut)
+      if (user) {
+        try {
+          await recordLogin(user.id);
+        } catch (e) {
+          console.warn('recordLogin:', e);
+        }
+      }
       if (user && window.location.hash === '#/login') {
         const { data: profile } = await supabase
           .from('profiles')

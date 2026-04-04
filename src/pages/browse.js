@@ -1,11 +1,12 @@
-import { getCurrentUser, getUserProfile, isAdmin } from '../utils/auth.js';
+import { getCurrentUser, getUserProfile } from '../utils/auth.js';
 import { calculateSemester, getSemesterLabel, getAccessibleSemesters } from '../utils/semester.js';
 import { renderSidebar, initSidebar } from '../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js';
 import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
-import { POINTS } from '../config.js';
+import { UPLOAD_TYPES } from '../config.js';
+import { escapeHtml, sanitizeText } from '../utils/sanitize.js';
 import gsap from 'gsap';
 
 export async function renderBrowsePage() {
@@ -41,9 +42,7 @@ export async function renderBrowsePage() {
                 <label class="form-label">Type</label>
                 <select class="form-select" id="filter-type">
                   <option value="">All Types</option>
-                  <option value="notes">Notes</option>
-                  <option value="assignment">Assignments</option>
-                  <option value="past_paper">Past Papers</option>
+                  ${UPLOAD_TYPES.map((t) => `<option value="${t.value}">${t.label}</option>`).join('')}
                 </select>
               </div>
               <div class="form-group" style="margin-bottom:0;flex:2;min-width:200px;">
@@ -78,7 +77,7 @@ async function loadResources(profile, accessibleSemesters) {
   const container = document.getElementById('resources-container');
   const semesterFilter = document.getElementById('filter-semester').value;
   const typeFilter = document.getElementById('filter-type').value;
-  const searchFilter = document.getElementById('filter-search').value.trim();
+  const searchFilter = sanitizeText(document.getElementById('filter-search').value, 200);
   const adminUser = profile.role === 'admin';
 
   container.innerHTML = '<div class="skeleton skeleton-card" style="height:300px;"></div>';
@@ -98,7 +97,7 @@ async function loadResources(profile, accessibleSemesters) {
   // Admin sees all semesters when no filter applied
 
   if (typeFilter) query = query.eq('type', typeFilter);
-  if (searchFilter) query = query.or(`title.ilike.%${searchFilter}%,description.ilike.%${searchFilter}%`);
+  if (searchFilter) query = query.ilike('title', `%${searchFilter}%`);
 
   const { data, error } = await query;
 
@@ -121,25 +120,26 @@ async function loadResources(profile, accessibleSemesters) {
   container.innerHTML = `
     <p style="color:var(--text-secondary);margin-bottom:var(--space-lg);">${data.length} resources found</p>
     <div class="resource-grid">
-      ${data.map(r => {
-        const typeIcons = { notes: 'fa-file-alt', assignment: 'fa-edit', past_paper: 'fa-scroll' };
-        const typeLabels = { notes: 'Notes', assignment: 'Assignment', past_paper: 'Past Paper' };
+      ${data.map((r) => {
+        const meta = UPLOAD_TYPES.find((t) => t.value === r.type);
+        const iconClass = meta?.icon || 'fa-file';
+        const typeLabel = meta?.label || r.type;
         return `
           <div class="resource-card card">
             <div class="resource-header">
               <div class="resource-type-icon">
-                <i class="fa-solid ${typeIcons[r.type] || 'fa-file'}"></i>
+                <i class="fa-solid ${iconClass}"></i>
               </div>
               <div style="flex:1;">
-                <h4 style="font-size:1rem;margin-bottom:4px;">${r.title}</h4>
+                <h4 style="font-size:1rem;margin-bottom:4px;">${escapeHtml(r.title)}</h4>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <span class="badge badge-primary">${typeLabels[r.type] || r.type}</span>
+                  <span class="badge badge-primary">${escapeHtml(typeLabel)}</span>
                   <span class="badge badge-success">Sem ${r.semester}</span>
                   ${r.courses ? `<span class="badge badge-warning">${r.courses.code}</span>` : ''}
                 </div>
               </div>
             </div>
-            ${r.description ? `<p style="color:var(--text-secondary);font-size:0.8125rem;margin:var(--space-md) 0;">${r.description.substring(0, 120)}${r.description.length > 120 ? '...' : ''}</p>` : ''}
+            ${r.description ? `<p style="color:var(--text-secondary);font-size:0.8125rem;margin:var(--space-md) 0;">${escapeHtml(String(r.description)).substring(0, 120)}${String(r.description).length > 120 ? '...' : ''}</p>` : ''}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);padding-top:var(--space-md);border-top:1px solid var(--grid);">
               <span style="color:var(--text-muted);font-size:0.75rem;">
                 <i class="fa-solid fa-user"></i> ${r.profiles?.display_name || 'Unknown'} •

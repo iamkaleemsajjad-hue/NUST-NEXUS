@@ -3,6 +3,7 @@ import { renderSidebar, initSidebar } from '../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js';
 import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
+import { sanitizeText, validateFields, pickAllowedFields, checkRateLimit } from '../utils/sanitize.js';
 import { router } from '../router.js';
 import gsap from 'gsap';
 
@@ -55,14 +56,35 @@ export async function renderFeedbackPage() {
 
   document.getElementById('feedback-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const message = document.getElementById('feedback-msg').value.trim();
-    
-    const { error } = await supabase.from('feedback').insert({
-      message,
-      user_id: user.id,
-      type: 'student',
-      user_name: profile.display_name,
-    });
+
+    const rl = checkRateLimit('feedback_student', 8, 3600000);
+    if (!rl.allowed) {
+      showToast('Too many feedback messages. Try again later.', 'error');
+      return;
+    }
+
+    const message = sanitizeText(document.getElementById('feedback-msg').value, 4000);
+    const { isValid, errors } = validateFields(
+      { message },
+      { message: { type: 'string', required: true, maxLength: 4000 } }
+    );
+    if (!isValid) {
+      showToast(errors[0] || 'Invalid message', 'warning');
+      return;
+    }
+
+    const row = pickAllowedFields(
+      {
+        message,
+        user_id: user.id,
+        type: 'student',
+        name: sanitizeText(profile.display_name || '', 120),
+        email: sanitizeText(profile.email || '', 254),
+      },
+      ['message', 'user_id', 'type', 'name', 'email']
+    );
+
+    const { error } = await supabase.from('feedback').insert(row);
 
     if (error) {
       showToast('Failed: ' + error.message, 'error');

@@ -18,10 +18,11 @@ export async function isFileUnique(supabase, fileHash) {
     .eq('file_hash', fileHash)
     .limit(1);
   
+  // Fail closed: if we cannot verify uniqueness, do not allow upload (avoids duplicate storage)
   if (error) {
     console.error('Hash check error:', error);
-    return true; // Allow on error
+    return false;
   }
-  
+
   return !data || data.length === 0;
 }

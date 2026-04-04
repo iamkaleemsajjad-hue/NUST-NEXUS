@@ -1,6 +1,13 @@
-// Supabase Configuration
-export const SUPABASE_URL = 'https://ebzfjxmdkrggwmpyhzna.supabase.co';
-export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViemZqeG1ka3JnZ3dtcHloem5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTI3OTMsImV4cCI6MjA5MDAyODc5M30.5nnP2yfmT83ARJFbAE8rkvfVEs6asKqLny2K2chWiuU';
+// Supabase Configuration (from environment variables)
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Storj S3 Configuration (Secret keys have been removed for security. Access is via secure Edge Functions)
+// The endpoint and bucket are public references.
+export const STORJ_CONFIG = {
+  endpoint: import.meta.env.VITE_STORJ_ENDPOINT || 'https://gateway.storjshare.io',
+  bucket: import.meta.env.VITE_STORJ_BUCKET || 'nust-nexus-uploads',
+};
 
 // Points Configuration
 export const POINTS = {
@@ -36,8 +43,8 @@ export const VALID_DOMAINS = [
   'student.nust.edu.pk',
 ];
 
-// Admin credentials
-export const ADMIN_EMAIL = 'iamkaleemsajjad@gmail.com';
+// Admin notification email (set in .env — do not commit real addresses to git)
+export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || '';
 
 // Upload types
 export const UPLOAD_TYPES = [
