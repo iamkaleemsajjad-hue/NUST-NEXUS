@@ -112,7 +112,7 @@ export async function renderDashboardPage() {
                         const d = new Date(l.login_at);
                         const lo = l.logout_at ? new Date(l.logout_at) : null;
                         return `<tr>
-                          <td>${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+                          <td>${d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
                           <td>${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</td>
                           <td>${lo ? lo.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '<span class="badge badge-success" style="font-size:0.65rem;">Active</span>'}</td>
                         </tr>`;

@@ -1,6 +1,7 @@
 import { getCurrentUser, getUserProfile } from '../../utils/auth.js';
 import { renderSidebar, initSidebar } from '../../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../../components/header.js';
+import { showToast } from '../../components/toast.js';
 import { supabase } from '../../utils/supabase.js';
 import { router } from '../../router.js';
 import gsap from 'gsap';
@@ -66,6 +67,17 @@ export async function renderAdminDashboard() {
             </div>
           </div>
 
+          <!-- Pending Uploads Queue -->
+          <div class="card" style="margin-top:var(--space-xl);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);">
+              <h3 style="margin:0;">Pending Uploads (Needs Verification)</h3>
+              <button class="btn btn-ghost btn-sm" onclick="window.loadPendingUploads()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+            </div>
+            <div id="pending-uploads">
+              <div class="skeleton skeleton-card" style="height:100px;"></div>
+            </div>
+          </div>
+
           <!-- Recent Users -->
           <div class="card" style="margin-top:var(--space-xl);">
             <h3 style="margin-bottom:var(--space-lg);">Recent Students</h3>
@@ -107,4 +119,77 @@ export async function renderAdminDashboard() {
       </div>
     `;
   }
+
+  window.loadPendingUploads = async function() {
+    const list = document.getElementById('pending-uploads');
+    list.innerHTML = '<div class="spinner"></div>';
+    
+    const { data: pending } = await supabase
+      .from('uploads')
+      .select('*, profiles(display_name)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+      
+    if (!pending || pending.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No pending uploads. Everything is up to date.</p></div>';
+      return;
+    }
+    
+    list.innerHTML = pending.map(item => `
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;margin-bottom:8px;background:rgba(255,255,255,0.02);border:1px solid var(--grid);">
+        <div>
+          <h4 style="margin-bottom:4px;">${item.title}</h4>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">
+            Type: ${item.type} | By: ${item.profiles?.display_name || 'Unknown'} | Date: ${new Date(item.created_at).toLocaleDateString()}
+          </p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <a href="${item.file_url}" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-eye"></i> View</a>
+          <button class="btn btn-primary btn-sm" onclick="window.approveUpload('${item.id}', '${item.user_id}', '${item.type}')">
+            <i class="fa-solid fa-check"></i> Approve
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="window.rejectUpload('${item.id}')">
+            <i class="fa-solid fa-xmark"></i> Reject
+          </button>
+        </div>
+      </div>
+    `).join('');
+  };
+  
+  window.rejectUpload = async function(id) {
+    if(!confirm('Reject this upload? No points will be awarded.')) return;
+    
+    const { error } = await supabase.from('uploads').update({ status: 'rejected' }).eq('id', id);
+    if (error) {
+      showToast('Error rejecting upload', 'error');
+      return;
+    }
+    
+    showToast('Upload rejected.', 'success');
+    window.loadPendingUploads();
+  };
+  
+  window.approveUpload = async function(id, userId, type) {
+    if(!confirm('Approve this upload and award points?')) return;
+    
+    // Import POINTS from config
+    const { POINTS } = await import('../../config.js');
+    const pointsAwarded = type === 'project' ? POINTS.UPLOAD_PROJECT : POINTS.UPLOAD_GENERAL;
+    
+    // Update status mapping
+    const { error } = await supabase.from('uploads').update({ status: 'approved', points_awarded: pointsAwarded }).eq('id', id);
+    if (error) {
+      showToast('Error approving upload', 'error');
+      return;
+    }
+    
+    // Give user points
+    const { data: profile } = await supabase.from('profiles').select('points').eq('id', userId).single();
+    await supabase.from('profiles').update({ points: (profile?.points || 0) + pointsAwarded }).eq('id', userId);
+    
+    showToast('Upload approved!', 'success');
+    window.loadPendingUploads();
+  };
+
+  window.loadPendingUploads();
 }

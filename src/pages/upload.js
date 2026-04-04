@@ -277,54 +277,41 @@ async function loadProfessors() {
 async function submitUpload(profile) {
   const btn = document.getElementById('submit-upload');
   
-  // Rate limiting check
-  const { checkRateLimit, sanitizeText } = await import('../utils/sanitize.js');
-  const rl = checkRateLimit('upload', 10, 60000); // Max 10 uploads per minute
-  if (!rl.allowed) {
-    showToast(`Too many upload attempts. Please wait ${Math.ceil(rl.remainingMs/1000)}s`, 'error');
-    return;
-  }
+  try {
+    // Rate limiting check
+    const { checkRateLimit, sanitizeText } = await import('../utils/sanitize.js');
+    const rl = checkRateLimit('upload', 10, 60000); // Max 10 uploads per minute
+    if (!rl.allowed) {
+      showToast(`Too many upload attempts. Please wait ${Math.ceil(rl.remainingMs/1000)}s`, 'error');
+      return;
+    }
 
-  const rawTitle = document.getElementById('upload-title').value;
+    const rawTitle = document.getElementById('upload-title').value;
   const title = sanitizeText(rawTitle, 100);
   
   if (!title) { showToast('Please enter a valid title', 'warning'); return; }
   if (!uploadData.file) { showToast('Please select a file', 'warning'); return; }
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Checking for duplicates...';
+  btn.innerHTML = '<span class="spinner"></span> Uploading...';
 
-  // Hash the file
+  // Hash the file (optional, but good for admin reference)
   const fileHash = await hashFile(uploadData.file);
-  const unique = await isFileUnique(supabase, fileHash);
 
-  let fileUrl = null;
-  let status = 'rejected';
-  let pointsAwarded = 0;
-  const isProject = uploadData.type === 'project';
+  const filePath = `uploads/${profile.id}/${Date.now()}-${uploadData.file.name}`;
+  const { uploadToStorj } = await import('../utils/storj.js');
+  const storjRes = await uploadToStorj(filePath, uploadData.file);
+  const fileUrl = storjRes.url;
 
-  if (!unique) {
-    showToast('Duplicate file detected. Upload rejected.', 'error');
-    // Skip Storj; DB row still records rejection (red status line)
-  } else {
-    btn.innerHTML = '<span class="spinner"></span> Uploading...';
-    const filePath = `uploads/${profile.id}/${Date.now()}-${uploadData.file.name}`;
-
-    const { uploadToStorj } = await import('../utils/storj.js');
-    const storjRes = await uploadToStorj(filePath, uploadData.file);
-    fileUrl = storjRes.url;
-
-    if (storjRes.error || !fileUrl) {
-      showToast('File upload failed: ' + (storjRes.error?.message || 'Unknown error'), 'error');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
-      return;
-    }
-
-    // Hash verified unique + file on Storj: approve so peers can browse/download (browse filters approved)
-    status = 'approved';
-    pointsAwarded = isProject ? POINTS.UPLOAD_PROJECT : POINTS.UPLOAD_GENERAL;
+  if (storjRes.error || !fileUrl) {
+    showToast('File upload failed: ' + (storjRes.error?.message || 'Unknown error'), 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
+    return;
   }
+
+  const status = 'pending';
+  const pointsAwarded = 0;
 
   // Insert upload record
   const { data: upload, error: insertError } = await supabase.from('uploads').insert({
@@ -339,7 +326,7 @@ async function submitUpload(profile) {
     file_size: uploadData.file.size,
     status,
     points_awarded: pointsAwarded,
-    reviewed_at: status === 'approved' ? new Date().toISOString() : null,
+    reviewed_at: null,
   }).select().single();
 
   if (insertError) {
@@ -356,21 +343,25 @@ async function submitUpload(profile) {
     action: 'uploaded',
   });
 
-  if (status === 'approved' && pointsAwarded > 0) {
-    await supabase.from('profiles').update({ points: (profile.points || 0) + pointsAwarded }).eq('id', profile.id);
-    showToast(
-      isProject
-        ? `Project uploaded! +${pointsAwarded} points awarded!`
-        : `Resource approved! +${pointsAwarded} points.`,
-      'success'
-    );
-  } else if (status === 'rejected') {
-    showToast('No points awarded (duplicate file).', 'warning');
-  }
+  showToast('Upload submitted! It is now pending admin approval.', 'success');
 
   // Reset and reload
   currentStep = 1;
-  renderUploadPage();
+  document.getElementById('file-preview').style.display = 'none';
+  document.getElementById('file-drop-zone').style.display = 'flex';
+  document.getElementById('submit-upload').disabled = true;
+  document.getElementById('submit-upload').innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
+  document.getElementById('upload-title').value = '';
+  
+    renderUploadPage();
+  } catch (error) {
+    console.error('Upload process error:', error);
+    showToast('Upload failed due to unexpected error: ' + error.message, 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
+    }
+  }
 }
 
 function goToStep(step) {

@@ -5,6 +5,7 @@ import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
 import { sanitizeText, validateFields, pickAllowedFields, escapeHtml, checkRateLimit } from '../utils/sanitize.js';
 import { router } from '../router.js';
+import { POINTS } from '../config.js';
 import gsap from 'gsap';
 
 export async function renderIdeasPage() {
@@ -35,7 +36,7 @@ export async function renderIdeasPage() {
             `}
           </div>
 
-          ${!adminUser ? `
+          <!-- Ideas List -->          ${!adminUser ? `
             <!-- Idea Submission Form (students only) -->
             <div class="card" id="idea-form-card" style="display:none;margin-bottom:var(--space-xl);">
               <h3 style="margin-bottom:var(--space-lg);">Share Your Project Idea</h3>
@@ -85,8 +86,27 @@ export async function renderIdeasPage() {
         </div>
       </div>
     </div>
+    
+    <!-- Idea Modal -->
+    <div id="idea-modal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+      <div class="modal-content card" style="max-width:600px;width:90%;max-height:90vh;overflow-y:auto;position:relative;">
+        <button id="close-modal-btn" class="btn btn-ghost" style="position:absolute;top:10px;right:10px;"><i class="fa-solid fa-xmark"></i></button>
+        <h2 id="modal-idea-title" style="margin-bottom:var(--space-sm);"></h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:var(--space-md);">
+          <span id="modal-idea-category" class="badge badge-primary"></span>
+          <span id="modal-idea-difficulty" class="badge"></span>
+          <span id="modal-idea-status" class="badge"></span>
+        </div>
+        <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:var(--space-lg);">
+          By <span id="modal-idea-author"></span> • <span id="modal-idea-date"></span>
+        </p>
+        <div id="modal-idea-desc" style="white-space:pre-wrap;line-height:1.6;font-size:0.95rem;word-break:break-word;overflow-wrap:anywhere;"></div>
+        <div id="modal-admin-actions" style="display:none;gap:12px;margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--grid);"></div>
+      </div>
+    </div>
   `;
 
+  window.isAdmin = adminUser;
   initSidebar(); initHeader(profile); setBreadcrumb('Project Ideas');
 
   if (!adminUser) {
@@ -160,7 +180,7 @@ export async function renderIdeasPage() {
       if (error) {
         showToast('Failed: ' + error.message, 'error');
       } else {
-        showToast('Idea submitted! 🎉', 'success');
+        showToast('Idea submitted! It is now pending admin approval.', 'success');
         document.getElementById('idea-form-card').style.display = 'none';
         document.getElementById('idea-form').reset();
         loadIdeas(profile);
@@ -199,11 +219,14 @@ async function loadIdeas(profile) {
   const difficultyColors = {
     beginner: 'badge-success', intermediate: 'badge-warning', advanced: 'badge-danger'
   };
+  const statusColors = {
+    approved: 'badge-success', pending: 'badge-warning', rejected: 'badge-danger'
+  };
 
   container.innerHTML = `
     <div class="resource-grid">
       ${data.map(idea => `
-        <div class="card resource-card">
+        <div class="card resource-card" style="cursor:pointer;" onclick="window.openIdea('${idea.id}')">
           <div class="resource-header">
             <div class="resource-type-icon">
               <i class="fa-solid ${categoryIcons[idea.category] || 'fa-lightbulb'}"></i>
@@ -213,6 +236,7 @@ async function loadIdeas(profile) {
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <span class="badge badge-primary">${idea.category || 'General'}</span>
                 <span class="badge ${difficultyColors[idea.difficulty] || 'badge-primary'}">${idea.difficulty || 'N/A'}</span>
+                <span class="badge ${statusColors[idea.status] || 'badge-warning'}">${idea.status ? idea.status.toUpperCase() : 'PENDING'}</span>
               </div>
             </div>
           </div>
@@ -224,11 +248,91 @@ async function loadIdeas(profile) {
               <i class="fa-solid fa-user"></i> ${idea.profiles?.display_name || 'Anonymous'} •
               ${new Date(idea.created_at).toLocaleDateString()}
             </span>
+            <button class="btn btn-ghost btn-sm" style="color:var(--primary);">
+              Read More
+            </button>
           </div>
         </div>
       `).join('')}
     </div>
   `;
+
+  // Attach global click handler for ideas
+  window.openIdea = (id) => {
+    const idea = data.find(i => i.id === id);
+    if (!idea) return;
+    document.getElementById('modal-idea-title').textContent = idea.title;
+    document.getElementById('modal-idea-category').textContent = idea.category || 'General';
+    document.getElementById('modal-idea-difficulty').className = `badge ${difficultyColors[idea.difficulty] || 'badge-primary'}`;
+    document.getElementById('modal-idea-difficulty').textContent = idea.difficulty || 'N/A';
+    
+    const ideaStatus = idea.status || 'pending';
+    document.getElementById('modal-idea-status').className = `badge ${statusColors[ideaStatus] || 'badge-warning'}`;
+    document.getElementById('modal-idea-status').textContent = ideaStatus.toUpperCase();
+    
+    document.getElementById('modal-idea-author').textContent = idea.profiles?.display_name || 'Anonymous';
+    document.getElementById('modal-idea-date').textContent = new Date(idea.created_at).toLocaleDateString();
+    document.getElementById('modal-idea-desc').textContent = idea.description || '';
+    
+    // Admin actions
+    const adminActionsContainer = document.getElementById('modal-admin-actions');
+    if (window.isAdmin && ideaStatus === 'pending') {
+      adminActionsContainer.style.display = 'flex';
+      adminActionsContainer.innerHTML = `
+        <button class="btn btn-primary" onclick="window.approveIdea('${idea.id}', '${idea.user_id}')">
+          <i class="fa-solid fa-check"></i> Approve & Award Points
+        </button>
+        <button class="btn btn-danger" onclick="window.rejectIdea('${idea.id}')">
+          <i class="fa-solid fa-xmark"></i> Reject
+        </button>
+      `;
+    } else {
+      adminActionsContainer.style.display = 'none';
+      adminActionsContainer.innerHTML = '';
+    }
+    
+    const modal = document.getElementById('idea-modal');
+    modal.style.display = 'flex';
+    gsap.fromTo('.modal-content', { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(1.2)' });
+  };
+  
+  window.approveIdea = async (id, userId) => {
+    if(!confirm('Approve this idea and award 5 points?')) return;
+    document.getElementById('idea-modal').style.display = 'none';
+    
+    const { POINTS } = await import('../config.js');
+    const { error } = await supabase.from('project_ideas').update({ status: 'approved' }).eq('id', id);
+    
+    if (error) {
+      showToast('Error approving idea', 'error');
+      return;
+    }
+    
+    // Give user points
+    const { data: userProfile } = await supabase.from('profiles').select('points').eq('id', userId).single();
+    await supabase.from('profiles').update({ points: (userProfile?.points || 0) + POINTS.UNIQUE_IDEA }).eq('id', userId);
+    
+    showToast('Idea approved and points awarded!', 'success');
+    loadIdeas(profile);
+  };
+  
+  window.rejectIdea = async (id) => {
+    if(!confirm('Reject this idea? No points will be awarded.')) return;
+    document.getElementById('idea-modal').style.display = 'none';
+    
+    const { error } = await supabase.from('project_ideas').update({ status: 'rejected' }).eq('id', id);
+    if (error) {
+      showToast('Error rejecting idea', 'error');
+      return;
+    }
+    
+    showToast('Idea rejected.', 'success');
+    loadIdeas(profile);
+  };
+
+  document.getElementById('close-modal-btn')?.addEventListener('click', () => {
+    document.getElementById('idea-modal').style.display = 'none';
+  });
 
   gsap.fromTo('.resource-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, stagger: 0.05, ease: 'power3.out' });
 }
