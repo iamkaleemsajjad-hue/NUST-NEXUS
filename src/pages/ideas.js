@@ -97,6 +97,7 @@ export async function renderIdeasPage() {
           <span id="modal-idea-difficulty" class="badge"></span>
           <span id="modal-idea-status" class="badge"></span>
         </div>
+        <div id="modal-idea-rating-container" style="margin-bottom:var(--space-md);"></div>
         <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:var(--space-lg);">
           By <span id="modal-idea-author"></span> • <span id="modal-idea-date"></span>
         </p>
@@ -198,7 +199,7 @@ async function loadIdeas(profile) {
   
   const { data } = await supabase
     .from('project_ideas')
-    .select('*, profiles(display_name)')
+    .select('*, profiles(display_name), idea_ratings(user_id, rating)')
     .order('created_at', { ascending: false });
 
   if (!data || data.length === 0) {
@@ -225,7 +226,10 @@ async function loadIdeas(profile) {
 
   container.innerHTML = `
     <div class="resource-grid">
-      ${data.map(idea => `
+      ${data.map(idea => {
+        const ratings = idea.idea_ratings || [];
+        const avg = ratings.length ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(1) : '0.0';
+        return `
         <div class="card resource-card" style="cursor:pointer;" onclick="window.openIdea('${idea.id}')">
           <div class="resource-header">
             <div class="resource-type-icon">
@@ -237,6 +241,11 @@ async function loadIdeas(profile) {
                 <span class="badge badge-primary">${idea.category || 'General'}</span>
                 <span class="badge ${difficultyColors[idea.difficulty] || 'badge-primary'}">${idea.difficulty || 'N/A'}</span>
                 <span class="badge ${statusColors[idea.status] || 'badge-warning'}">${idea.status ? idea.status.toUpperCase() : 'PENDING'}</span>
+              </div>
+              <div class="idea-rating-display">
+                <div class="stars"><i class="fa-solid fa-star"></i></div>
+                <span class="avg">${avg}</span>
+                <span class="count">(${ratings.length} rating${ratings.length !== 1 ? 's' : ''})</span>
               </div>
             </div>
           </div>
@@ -253,7 +262,8 @@ async function loadIdeas(profile) {
             </button>
           </div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
   `;
 
@@ -274,6 +284,64 @@ async function loadIdeas(profile) {
     document.getElementById('modal-idea-date').textContent = new Date(idea.created_at).toLocaleDateString();
     document.getElementById('modal-idea-desc').textContent = idea.description || '';
     
+    // Rating Logic
+    const ratings = idea.idea_ratings || [];
+    const avg = ratings.length ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(1) : '0.0';
+    const userRating = ratings.find(r => r.user_id === profile.id);
+    
+    let ratingHtml = `<div class="idea-rating-display"><div class="stars"><i class="fa-solid fa-star"></i></div><span class="avg">${avg}</span><span class="count">(${ratings.length} rating${ratings.length !== 1 ? 's' : ''})</span></div>`;
+    
+    if (userRating) {
+      ratingHtml += `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">You rated this ${userRating.rating} stars.</div>`;
+    } else {
+      ratingHtml += `
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
+          <p style="font-size: 0.85rem; margin: 0; color: var(--text-secondary);">Rate this idea:</p>
+          <div class="star-rating-widget" id="idea-rating-widget">
+            <input type="radio" name="idea_rate" id="rate-5" value="5"><label for="rate-5" class="fa-solid fa-star"></label>
+            <input type="radio" name="idea_rate" id="rate-4" value="4"><label for="rate-4" class="fa-solid fa-star"></label>
+            <input type="radio" name="idea_rate" id="rate-3" value="3"><label for="rate-3" class="fa-solid fa-star"></label>
+            <input type="radio" name="idea_rate" id="rate-2" value="2"><label for="rate-2" class="fa-solid fa-star"></label>
+            <input type="radio" name="idea_rate" id="rate-1" value="1"><label for="rate-1" class="fa-solid fa-star"></label>
+          </div>
+        </div>
+      `;
+    }
+    const ratingContainer = document.getElementById('modal-idea-rating-container');
+    ratingContainer.innerHTML = ratingHtml;
+    
+    if (!userRating) {
+      document.querySelectorAll('#idea-rating-widget input').forEach(radio => {
+        radio.addEventListener('change', async (e) => {
+          const val = parseInt(e.target.value);
+          const widget = document.getElementById('idea-rating-widget');
+          if (widget.classList.contains('disabled')) return;
+          widget.classList.add('disabled');
+          widget.querySelectorAll('input').forEach(i => i.disabled = true);
+          
+          const { error } = await supabase.from('idea_ratings').insert({
+            idea_id: idea.id,
+            user_id: profile.id,
+            rating: val
+          });
+          
+          if (error) {
+            import('../components/toast.js').then(m => m.showToast('Failed to save rating. Did you already rate?', 'error'));
+            widget.classList.remove('disabled');
+            widget.querySelectorAll('input').forEach(i => i.disabled = false);
+          } else {
+            import('../components/toast.js').then(m => m.showToast('Rating saved successfully!', 'success'));
+            widget.parentElement.innerHTML = `<div style="font-size: 0.85rem; color: var(--success); margin-top: 8px;">You rated this ${val} stars.</div>`;
+            
+            // Background reload to update averages across UI without resetting scroll
+            const currentPosition = window.pageYOffset;
+            await loadIdeas(profile);
+            window.scrollTo(0, currentPosition);
+          }
+        });
+      });
+    }
+
     // Admin actions
     const adminActionsContainer = document.getElementById('modal-admin-actions');
     if (window.isAdmin && ideaStatus === 'pending') {
