@@ -105,15 +105,16 @@ export async function renderDashboardPage() {
                 <div class="table-container">
                   <table class="data-table">
                     <thead>
-                      <tr><th>Date</th><th>Time</th><th>Day</th></tr>
+                      <tr><th>Date</th><th>Login</th><th>Logout</th></tr>
                     </thead>
                     <tbody>
                       ${loginHistory.map(l => {
                         const d = new Date(l.login_at);
+                        const lo = l.logout_at ? new Date(l.logout_at) : null;
                         return `<tr>
-                          <td>${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                          <td>${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
                           <td>${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</td>
-                          <td>${d.toLocaleDateString('en-US', { weekday: 'long' })}</td>
+                          <td>${lo ? lo.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '<span class="badge badge-success" style="font-size:0.65rem;">Active</span>'}</td>
                         </tr>`;
                       }).join('')}
                     </tbody>
@@ -122,10 +123,10 @@ export async function renderDashboardPage() {
               ` : '<div class="empty-state"><p>First login! Welcome aboard 🎉</p></div>'}
             </div>
 
-            <!-- Audit Logs Preview -->
-            <div class="card" id="dash-audit">
-              <h3 style="margin-bottom:var(--space-lg);"><i class="fa-solid fa-list-check"></i> Recent Activity</h3>
-              <div id="audit-log-content">
+            <!-- Recent Uploads -->
+            <div class="card" id="dash-uploads">
+              <h3 style="margin-bottom:var(--space-lg);"><i class="fa-solid fa-cloud-arrow-up"></i> Your Recent Uploads</h3>
+              <div id="recent-uploads-content">
                 <div class="skeleton skeleton-card" style="height:200px;"></div>
               </div>
             </div>
@@ -138,13 +139,13 @@ export async function renderDashboardPage() {
   initSidebar();
   initHeader(profile);
   setBreadcrumb('Dashboard');
-  loadAuditLogs(user.id);
+  loadRecentUploads(user.id);
 
   // Animations
   gsap.fromTo('#dash-welcome', { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' });
   gsap.fromTo('.stat-card', { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.1, delay: 0.2, ease: 'power3.out' });
   gsap.fromTo('#dash-history', { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, delay: 0.5, ease: 'power3.out' });
-  gsap.fromTo('#dash-audit', { x: 30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, delay: 0.5, ease: 'power3.out' });
+  gsap.fromTo('#dash-uploads', { x: 30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, delay: 0.5, ease: 'power3.out' });
 
   // Avatar upload
   document.getElementById('avatar-input')?.addEventListener('change', async (e) => {
@@ -177,42 +178,42 @@ export async function renderDashboardPage() {
   });
 }
 
-async function loadAuditLogs(userId) {
-  const container = document.getElementById('audit-log-content');
+async function loadRecentUploads(userId) {
+  const container = document.getElementById('recent-uploads-content');
   if (!container) return;
 
   const { data } = await supabase
-    .from('audit_logs')
-    .select('*, uploads(title, type, status)')
+    .from('uploads')
+    .select('*, courses(name, code)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(8);
 
   if (!data || data.length === 0) {
-    container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-clipboard-list"></i><p>No activity yet</p></div>';
+    container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-cloud-arrow-up"></i><p>No uploads yet. Start sharing!</p></div>';
     return;
   }
 
-  container.innerHTML = `
-    <div class="audit-timeline">
-      ${data.map(log => {
-        const statusColor = log.action === 'approved' ? 'var(--success)' : log.action === 'rejected' ? 'var(--danger)' : 'var(--warning)';
-        const statusIcon = log.action === 'approved' ? 'fa-circle-check' : log.action === 'rejected' ? 'fa-circle-xmark' : 'fa-clock';
-        const d = new Date(log.created_at);
-        return `
-          <div class="audit-item">
-            <div class="audit-line" style="background:${statusColor};"></div>
-            <div class="audit-dot" style="background:${statusColor};"></div>
-            <div class="audit-content">
-              <div class="audit-title">
-                <i class="fa-solid ${statusIcon}" style="color:${statusColor};"></i>
-                <span>${log.uploads?.title || 'Upload'} — ${log.action}</span>
-              </div>
-              <span class="audit-time">${d.toLocaleDateString()} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
+  const statusStyles = {
+    pending: { color: 'var(--warning)', bg: 'rgba(255,184,0,0.1)', icon: 'fa-clock', label: 'Pending' },
+    approved: { color: 'var(--success)', bg: 'rgba(0,255,136,0.1)', icon: 'fa-circle-check', label: 'Approved' },
+    rejected: { color: 'var(--danger)', bg: 'rgba(255,59,92,0.1)', icon: 'fa-circle-xmark', label: 'Rejected' },
+  };
+
+  container.innerHTML = data.map(u => {
+    const s = statusStyles[u.status] || statusStyles.pending;
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--grid);">
+        <div style="width:4px;height:36px;border-radius:2px;background:${s.color};"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:500;font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.title}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">${u.courses?.code || u.type} · ${new Date(u.created_at).toLocaleDateString()}</div>
+        </div>
+        <span class="badge" style="background:${s.bg};color:${s.color};font-size:0.7rem;">
+          <i class="fa-solid ${s.icon}"></i> ${s.label}
+        </span>
+      </div>
+    `;
+  }).join('');
 }
+
