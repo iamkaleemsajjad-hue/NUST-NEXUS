@@ -250,6 +250,7 @@ function initLoginEvents() {
 
   // Sign Up
   let pendingEmail = '';
+  let pendingPassword = '';
   document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const emailRaw = document.getElementById('signup-email').value;
@@ -283,7 +284,13 @@ function initLoginEvents() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Creating account...';
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: 'https://iamkaleemsajjad-hue.github.io/NUST-NEXUS/'
+      }
+    });
 
     if (error) {
       showToast(error.message, 'error');
@@ -296,6 +303,7 @@ function initLoginEvents() {
     }
 
     pendingEmail = email;
+    pendingPassword = password;
     showToast('Verification code sent to your email!', 'success');
 
     // Show OTP section
@@ -326,7 +334,7 @@ function initLoginEvents() {
     const { error } = await supabase.auth.verifyOtp({
       email: pendingEmail,
       token: otp,
-      type: 'signup',
+      type: 'email',
     });
 
     if (error) {
@@ -334,13 +342,22 @@ function initLoginEvents() {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Verify';
     } else {
+      if (pendingPassword) {
+        await supabase.auth.updateUser({ password: pendingPassword });
+      }
       showToast('Email verified! Setting up your profile...', 'success');
     }
   });
 
   // Resend OTP
   document.getElementById('resend-otp-btn')?.addEventListener('click', async () => {
-    const { error } = await supabase.auth.resend({ type: 'signup', email: pendingEmail });
+    const { error } = await supabase.auth.signInWithOtp({
+      email: pendingEmail,
+      options: { 
+        shouldCreateUser: true,
+        emailRedirectTo: 'https://iamkaleemsajjad-hue.github.io/NUST-NEXUS/'
+      }
+    });
     if (error) showToast(error.message, 'error');
     else showToast('New code sent!', 'success');
   });

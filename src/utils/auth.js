@@ -35,6 +35,7 @@ export async function signUpWithEmail(email) {
     email,
     options: {
       shouldCreateUser: true,
+      emailRedirectTo: 'https://iamkaleemsajjad-hue.github.io/NUST-NEXUS/'
     }
   });
   return { data, error };
