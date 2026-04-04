@@ -90,26 +90,7 @@ export async function renderLoginPage() {
               </div>
               <span class="form-helper">Use your NUST email (@nust.edu.pk, @seecs.edu.pk, etc.)</span>
             </div>
-            <div class="form-group">
-              <label class="form-label">Password</label>
-              <div class="input-with-icon">
-                <i class="fa-solid fa-lock"></i>
-                <input type="password" class="form-input" id="signup-password" placeholder="Create a password" required />
-                <button type="button" class="password-toggle" id="signup-toggle">
-                  <i class="fa-solid fa-eye"></i>
-                </button>
-              </div>
-              <div class="password-strength" id="signup-pw-strength" data-strength="0">
-                <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Confirm Password</label>
-              <div class="input-with-icon">
-                <i class="fa-solid fa-lock"></i>
-                <input type="password" class="form-input" id="signup-confirm" placeholder="Confirm password" required />
-              </div>
-            </div>
+
             <button type="submit" class="btn btn-primary btn-block btn-lg" id="signup-btn">
               <i class="fa-solid fa-user-plus"></i> Create Account
             </button>
@@ -206,18 +187,6 @@ function initLoginEvents() {
 
   // Password toggles
   setupPasswordToggle('signin-toggle', 'signin-password');
-  setupPasswordToggle('signup-toggle', 'signup-password');
-
-  // Password strength
-  document.getElementById('signup-password')?.addEventListener('input', (e) => {
-    const val = e.target.value;
-    let strength = 0;
-    if (val.length >= 8) strength++;
-    if (/[A-Z]/.test(val)) strength++;
-    if (/[0-9]/.test(val)) strength++;
-    if (/[^A-Za-z0-9]/.test(val)) strength++;
-    document.getElementById('signup-pw-strength').setAttribute('data-strength', strength);
-  });
 
   // Sign In
   document.getElementById('signin-form')?.addEventListener('submit', async (e) => {
@@ -252,12 +221,9 @@ function initLoginEvents() {
 
   // Sign Up
   let pendingEmail = '';
-  let pendingPassword = '';
   document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const emailRaw = document.getElementById('signup-email').value;
-    const password = document.getElementById('signup-password').value;
-    const confirm = document.getElementById('signup-confirm').value;
     const btn = document.getElementById('signup-btn');
 
     const { valid: emailOk, email } = sanitizeEmail(emailRaw);
@@ -273,15 +239,7 @@ function initLoginEvents() {
       return;
     }
 
-    if (password !== confirm) {
-      showToast('Passwords do not match', 'error');
-      return;
-    }
-    const pwCheck = validatePassword(password);
-    if (!pwCheck.isValid) {
-      showToast(pwCheck.errors[0], 'error');
-      return;
-    }
+
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Creating account...';
@@ -304,7 +262,6 @@ function initLoginEvents() {
     }
 
     pendingEmail = email;
-    pendingPassword = password;
     showToast('Verification code sent to your email!', 'success');
 
     // Show OTP section
@@ -343,9 +300,6 @@ function initLoginEvents() {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Verify';
     } else {
-      if (pendingPassword) {
-        await supabase.auth.updateUser({ password: pendingPassword });
-      }
       showToast('Email verified! Setting up your profile...', 'success');
     }
   });

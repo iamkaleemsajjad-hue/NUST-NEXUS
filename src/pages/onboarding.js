@@ -1,5 +1,6 @@
 import { getCurrentUser, getUserProfile, completeOnboarding } from '../utils/auth.js';
 import { parseNustEmail } from '../utils/email-parser.js';
+import { getLogoSVG } from '../components/logo.js';
 import { validatePassword, getPasswordStrength } from '../utils/validators.js';
 import { calculateSemester, getSemesterLabel } from '../utils/semester.js';
 import { showToast } from '../components/toast.js';
@@ -22,11 +23,11 @@ export async function renderOnboardingPage() {
   app.innerHTML = `
     <div class="onboarding-page">
       <div class="onboarding-container">
-        <div class="onboarding-card card-glass" id="onboarding-card">
+        <div class="onboarding-card" id="onboarding-card" style="background: var(--bg-deep); color: var(--text-primary); box-shadow: 0 8px 30px rgba(0,0,0,0.12);">
           <div class="onboarding-header">
-            <img src="/logo.png" alt="NUST NEXUS" class="onboarding-logo" />
-            <h2>Welcome to <span class="text-gradient">NUST NEXUS</span></h2>
-            <p>Let's set up your profile</p>
+            ${getLogoSVG('onboarding-logo', '140', '140')}
+            <h2 style="color: var(--text-primary); margin-top: 15px;">Welcome to <span class="text-gradient">NUST NEXUS</span></h2>
+            <p style="color: var(--text-secondary);">Let's set up your profile</p>
           </div>
 
           <div class="onboarding-info">
