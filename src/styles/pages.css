@@ -206,8 +206,8 @@
   gap: 10px;
 }
 .otp-digit {
-  width: 50px;
-  height: 60px;
+  width: 45px;
+  height: 55px;
   text-align: center;
   font-size: 1.5rem;
   font-family: var(--font-mono);
@@ -215,7 +215,7 @@
   background: var(--secondary);
   border: 2px solid var(--grid);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: #FFFFFF;
   outline: none;
   transition: all var(--transition-base);
 }

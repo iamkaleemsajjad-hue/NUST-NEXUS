@@ -120,7 +120,7 @@ export async function renderLoginPage() {
             <div class="otp-header">
               <div class="otp-icon"><i class="fa-solid fa-shield-halved"></i></div>
               <h3>Verify Your Email</h3>
-              <p style="color:var(--text-secondary);margin-top:8px;">Enter the 6-digit code sent to your email</p>
+              <p style="color:var(--text-secondary);margin-top:8px;">Enter the 8-digit code sent to your email</p>
             </div>
             <div class="otp-inputs" id="otp-inputs">
               <input type="text" maxlength="1" class="otp-digit" data-index="0" />
@@ -129,6 +129,8 @@ export async function renderLoginPage() {
               <input type="text" maxlength="1" class="otp-digit" data-index="3" />
               <input type="text" maxlength="1" class="otp-digit" data-index="4" />
               <input type="text" maxlength="1" class="otp-digit" data-index="5" />
+              <input type="text" maxlength="1" class="otp-digit" data-index="6" />
+              <input type="text" maxlength="1" class="otp-digit" data-index="7" />
             </div>
             <button class="btn btn-primary btn-block" id="verify-otp-btn" style="margin-top:var(--space-xl);">
               <i class="fa-solid fa-check-circle"></i> Verify
@@ -321,8 +323,8 @@ function initLoginEvents() {
     const digits = document.querySelectorAll('.otp-digit');
     const otp = Array.from(digits).map(d => d.value).join('');
 
-    if (otp.length !== 6) {
-      showToast('Please enter the 6-digit code', 'warning');
+    if (otp.length !== 8) {
+      showToast('Please enter the 8-digit code', 'warning');
       return;
     }
 
@@ -437,7 +439,7 @@ function initOTPInputs() {
     input.addEventListener('input', (e) => {
       const val = e.target.value.replace(/[^0-9]/g, '');
       e.target.value = val;
-      if (val && index < 5) digits[index + 1].focus();
+      if (val && index < 7) digits[index + 1].focus();
     });
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Backspace' && !e.target.value && index > 0) {
@@ -446,11 +448,11 @@ function initOTPInputs() {
     });
     input.addEventListener('paste', (e) => {
       e.preventDefault();
-      const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '').slice(0, 6);
+      const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '').slice(0, 8);
       pasted.split('').forEach((ch, i) => {
         if (digits[i]) digits[i].value = ch;
       });
-      if (pasted.length > 0) digits[Math.min(pasted.length, 5)].focus();
+      if (pasted.length > 0) digits[Math.min(pasted.length, 7)].focus();
     });
   });
   digits[0]?.focus();
