@@ -232,6 +232,11 @@ function initLoginEvents() {
       return;
     }
 
+    if (!email.endsWith('.edu.pk')) {
+      showToast('invalid email ! Use your NUST email ! ', 'error');
+      return;
+    }
+
     const rl = checkRateLimit('signup', 3, 300000); // Max 3 signups per 5 mins
     
     if (!rl.allowed) {
