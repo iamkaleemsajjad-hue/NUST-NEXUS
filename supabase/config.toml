@@ -1,0 +1,13 @@
+# Supabase CLI — link with: supabase link --project-ref <your-project-ref>
+# Docs: https://supabase.com/docs/guides/cli/config
+
+[api]
+enabled = true
+
+[functions]
+# JWT required for Storj proxy functions (default on hosted projects)
+[functions.storj-upload]
+verify_jwt = true
+
+[functions.storj-delete]
+verify_jwt = true
