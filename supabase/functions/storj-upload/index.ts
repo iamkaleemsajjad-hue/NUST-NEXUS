@@ -179,8 +179,11 @@ Deno.serve(async (req) => {
     const endpointUrl = new URL(endpoint);
     const host = endpointUrl.host;
 
+    // URI-encode each path segment for S3 compatibility (handles spaces, special chars)
+    const encodedPath = path.split('/').map(segment => encodeURIComponent(segment)).join('/');
+
     // S3 path-style: /<bucket>/<key>
-    const s3Path = `/${bucket}/${path}`;
+    const s3Path = `/${bucket}/${encodedPath}`;
 
     const signedHeaders = await signRequest({
       method: "PUT",
@@ -194,7 +197,7 @@ Deno.serve(async (req) => {
       service: "s3",
     });
 
-    const uploadUrl = `${endpoint}/${bucket}/${path}`;
+    const uploadUrl = `${endpoint}/${bucket}/${encodedPath}`;
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: signedHeaders,
@@ -213,8 +216,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Public URL
-    const publicUrl = `${endpoint}/${bucket}/${path}`;
+    // Public URL (use encoded path for valid URL)
+    const publicUrl = `${endpoint}/${bucket}/${encodedPath}`;
     console.log("storj-upload: success", publicUrl);
 
     return new Response(JSON.stringify({ url: publicUrl }), {

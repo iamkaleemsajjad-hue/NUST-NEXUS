@@ -1,6 +1,6 @@
 import { getCurrentUser, getUserProfile } from '../utils/auth.js';
 import { calculateSemester } from '../utils/semester.js';
-import { hashFile } from '../utils/hash.js';
+import { hashFile, isFileUnique } from '../utils/hash.js';
 import { renderSidebar, initSidebar } from '../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js';
 import { showToast } from '../components/toast.js';
@@ -295,8 +295,23 @@ async function submitUpload(profile) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Uploading...';
 
-  // Hash the file (optional, but good for admin reference)
+  // Hash the file for duplicate detection
   const fileHash = await hashFile(uploadData.file);
+
+  // ── Duplicate check ──────────────────────────────────────────────
+  const { isUnique, existingTitle, status: existingStatus } = await isFileUnique(supabase, fileHash);
+  if (!isUnique) {
+    const statusMsg = existingStatus === 'approved' ? ' (already approved)'
+                    : existingStatus === 'pending' ? ' (pending review)'
+                    : '';
+    showToast(
+      `Duplicate file detected! This exact file has already been uploaded${existingTitle ? ` as "${existingTitle}"` : ''}${statusMsg}. Please upload a different file.`,
+      'error'
+    );
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
+    return;
+  }
 
   const filePath = `uploads/${profile.id}/${Date.now()}-${uploadData.file.name}`;
   const { uploadToStorj } = await import('../utils/storj.js');

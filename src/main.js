@@ -53,47 +53,60 @@ router.beforeEach = async (to) => {
 
 // Initialize app
 async function init() {
-  // Ensure loader hides even if auth checks take long or fail
-  setTimeout(() => {
-    const loader = document.getElementById('global-loader');
-    if (loader) {
-      loader.classList.remove('active');
-    }
-  }, 1200);
+  const loader = document.getElementById('global-loader');
+
+  // Safety net: Always hide the loader after 3 seconds max
+  const loaderTimeout = setTimeout(() => {
+    if (loader) loader.classList.remove('active');
+  }, 3000);
 
   let user = null;
   try {
-    // Check initial auth state
-    const res = await supabase.auth.getUser();
+    // Check initial auth state with a timeout to prevent hanging
+    const authPromise = supabase.auth.getUser();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Auth timeout')), 5000)
+    );
+    const res = await Promise.race([authPromise, timeoutPromise]);
     user = res.data?.user || null;
   } catch (err) {
-    console.error('Auth initialization error:', err);
+    console.warn('Auth initialization error (continuing as guest):', err);
+    user = null;
   }
 
+  // Hide loader now that auth check completed
+  clearTimeout(loaderTimeout);
+  if (loader) loader.classList.remove('active');
 
-  // Handle initial route
-  const hash = window.location.hash.slice(1);
-  if (!hash) {
-    if (user) {
-      // Check if onboarding is complete
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('onboarding_complete, role')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile && !profile.onboarding_complete) {
-        router.navigate('/onboarding');
-      } else if (profile?.role === 'admin') {
-        router.navigate('/admin/dashboard');
+  // Handle initial route — always guarantee a page renders
+  try {
+    const hash = window.location.hash.slice(1);
+    if (!hash || hash === '/') {
+      if (user) {
+        // Check if onboarding is complete
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_complete, role')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile && !profile.onboarding_complete) {
+          router.navigate('/onboarding');
+        } else if (profile?.role === 'admin') {
+          router.navigate('/admin/dashboard');
+        } else {
+          router.navigate('/dashboard');
+        }
       } else {
-        router.navigate('/dashboard');
+        router.navigate('/login');
       }
     } else {
-      router.navigate('/login');
+      router.handleRoute();
     }
-  } else {
-    router.handleRoute();
+  } catch (routeErr) {
+    console.error('Route initialization error:', routeErr);
+    // Absolute fallback — show login page
+    router.navigate('/login');
   }
 
   // Listen for auth state changes

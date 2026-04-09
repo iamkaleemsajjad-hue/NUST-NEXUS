@@ -3,13 +3,19 @@ export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Check your .env file.');
+  console.warn(
+    '[NUST NEXUS] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.',
+    'Ensure your .env file exists and contains these variables.',
+    'For production builds, set them as GitHub Secrets.'
+  );
 }
 
-// Storj S3 Configuration (Secret keys are managed via Supabase Edge Function secrets)
+// Storj S3 Configuration
+// Note: Secret keys (STORJ_ACCESS_KEY, STORJ_SECRET_KEY) are managed
+// server-side via Supabase Edge Function secrets — never exposed to the browser.
 export const STORJ_CONFIG = {
-  endpoint: import.meta.env.VITE_STORJ_ENDPOINT,
-  bucket: import.meta.env.VITE_STORJ_BUCKET,
+  endpoint: import.meta.env.VITE_STORJ_ENDPOINT || 'https://gateway.storjshare.io',
+  bucket: import.meta.env.VITE_STORJ_BUCKET || 'nust-nexus-uploads',
 };
 
 // Points Configuration

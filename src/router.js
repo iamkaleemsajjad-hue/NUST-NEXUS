@@ -33,7 +33,13 @@ export class Router {
   }
 
   navigate(path) {
-    window.location.hash = path;
+    const currentHash = window.location.hash.slice(1);
+    if (currentHash === path) {
+      // Hash is already the same — force re-render (no hashchange event fires)
+      this.handleRoute();
+    } else {
+      window.location.hash = path;
+    }
   }
 
   getCurrentRoute() {
