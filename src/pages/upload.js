@@ -1,6 +1,6 @@
 import { getCurrentUser, getUserProfile } from '../utils/auth.js';
 import { calculateSemester } from '../utils/semester.js';
-import { hashFile, isFileUnique } from '../utils/hash.js';
+import { hashFile } from '../utils/hash.js';
 import { renderSidebar, initSidebar } from '../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js';
 import { showToast } from '../components/toast.js';
