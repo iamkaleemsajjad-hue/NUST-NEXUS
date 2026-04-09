@@ -32,6 +32,13 @@ jobs:
       - name: Build
         run: npm run build
 
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_STORJ_ENDPOINT: ${{ secrets.VITE_STORJ_ENDPOINT }}
+          VITE_STORJ_BUCKET: ${{ secrets.VITE_STORJ_BUCKET }}
+          VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
@@ -43,7 +50,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ github.event.deployment.payload.web_url || '' }}
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
