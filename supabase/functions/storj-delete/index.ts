@@ -161,10 +161,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // URI-encode each path segment for S3 compatibility
+    const encodedPath = path.split('/').map(segment => encodeURIComponent(segment)).join('/');
+
     // Extraction host from url
     const endpointUrl = new URL(endpoint);
     const host = endpointUrl.host;
-    const s3Path = `/${bucket}/${path}`;
+    const s3Path = `/${bucket}/${encodedPath}`;
     const emptyBody = new Uint8Array(0);
 
     const signedHeaders = await signRequest({
@@ -179,7 +182,7 @@ Deno.serve(async (req) => {
       service: "s3",
     });
 
-    const deleteUrl = `${endpoint}/${bucket}/${path}`;
+    const deleteUrl = `${endpoint}/${bucket}/${encodedPath}`;
     const deleteRes = await fetch(deleteUrl, {
       method: "DELETE",
       headers: signedHeaders,
