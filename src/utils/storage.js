@@ -1,17 +1,17 @@
 /**
  * NUST NEXUS — Supabase Storage Client
  * Uploads, downloads, and deletes files using native Supabase Storage.
- * Includes XMLHttpRequest-based upload with progress tracking.
+ * Uses the supabase-js client which handles auth and CORS automatically.
  */
 
 import { supabase } from './supabase.js';
-import { SUPABASE_URL } from '../config.js';
 
 const BUCKET = 'uploads';
 
 /**
- * Upload a file to Supabase Storage with progress callback.
- * Uses XMLHttpRequest for real-time progress tracking.
+ * Upload a file to Supabase Storage with progress simulation.
+ * Uses the native supabase-js client for reliable CORS handling.
+ * Progress is simulated based on file size since fetch doesn't support upload progress.
  * @param {string} path - Object key/path in the bucket
  * @param {File} file - The File object to upload
  * @param {function} [onProgress] - Callback: (percent: number) => void
@@ -19,56 +19,54 @@ const BUCKET = 'uploads';
  */
 export async function uploadFile(path, file, onProgress) {
   try {
-    // Get current session token
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      return { url: null, error: new Error('Not authenticated. Please log in again.') };
+    // Start simulated progress
+    let progressInterval = null;
+    let currentProgress = 0;
+
+    if (onProgress) {
+      // Simulate progress based on estimated upload time
+      // Small files (<1MB): fast progress, Large files: slower
+      const fileSizeMB = file.size / (1024 * 1024);
+      const intervalMs = fileSizeMB < 1 ? 100 : fileSizeMB < 5 ? 200 : 300;
+      const increment = fileSizeMB < 1 ? 8 : fileSizeMB < 5 ? 4 : 2;
+
+      progressInterval = setInterval(() => {
+        if (currentProgress < 85) {
+          currentProgress += increment + Math.random() * 3;
+          if (currentProgress > 85) currentProgress = 85;
+          onProgress(Math.round(currentProgress));
+        }
+      }, intervalMs);
     }
 
-    const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`;
-
-    return await new Promise((resolve) => {
-      const xhr = new XMLHttpRequest();
-
-      // Track upload progress
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable && onProgress) {
-          const percent = Math.round((e.loaded / e.total) * 100);
-          onProgress(percent);
-        }
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || 'application/octet-stream',
       });
 
-      xhr.addEventListener('load', () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          // Build the public URL
-          const { data: urlData } = supabase.storage
-            .from(BUCKET)
-            .getPublicUrl(path);
-          resolve({ url: urlData.publicUrl, error: null });
-        } else {
-          let errMsg = `Upload failed (${xhr.status})`;
-          try {
-            const resp = JSON.parse(xhr.responseText);
-            errMsg = resp.error || resp.message || errMsg;
-          } catch (_) {}
-          resolve({ url: null, error: new Error(errMsg) });
-        }
-      });
+    // Stop simulated progress
+    if (progressInterval) clearInterval(progressInterval);
 
-      xhr.addEventListener('error', () => {
-        resolve({ url: null, error: new Error('Network error during upload') });
-      });
+    if (error) {
+      if (onProgress) onProgress(0);
+      return { url: null, error };
+    }
 
-      xhr.addEventListener('abort', () => {
-        resolve({ url: null, error: new Error('Upload cancelled') });
-      });
+    // Jump to 95% while we get the public URL
+    if (onProgress) onProgress(95);
 
-      xhr.open('POST', url);
-      xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
-      xhr.setRequestHeader('x-upsert', 'false');
-      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-      xhr.send(file);
-    });
+    // Get the public URL for the uploaded file
+    const { data: urlData } = supabase.storage
+      .from(BUCKET)
+      .getPublicUrl(data.path);
+
+    // Complete
+    if (onProgress) onProgress(100);
+
+    return { url: urlData.publicUrl, error: null };
   } catch (err) {
     return { url: null, error: err };
   }
