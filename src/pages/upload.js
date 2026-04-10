@@ -1,6 +1,5 @@
 import { getCurrentUser, getUserProfile } from '../utils/auth.js';
 import { calculateSemester } from '../utils/semester.js';
-import { hashFile, isFileUnique } from '../utils/hash.js';
 import { renderSidebar, initSidebar } from '../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js';
 import { showToast } from '../components/toast.js';
@@ -100,6 +99,18 @@ export async function renderUploadPage() {
                 <span id="file-size"></span>
                 <button class="btn btn-ghost btn-sm" id="remove-file"><i class="fa-solid fa-xmark"></i></button>
               </div>
+
+              <!-- Upload Progress Bar -->
+              <div id="upload-progress-container" class="upload-progress-container" style="display:none;">
+                <div class="upload-progress-header">
+                  <span id="upload-progress-label">Uploading...</span>
+                  <span id="upload-progress-percent">0%</span>
+                </div>
+                <div class="upload-progress-track">
+                  <div class="upload-progress-bar" id="upload-progress-bar" style="width:0%"></div>
+                </div>
+              </div>
+
               <button class="btn btn-primary btn-block btn-lg" id="submit-upload" style="margin-top:var(--space-lg);" disabled>
                 <i class="fa-solid fa-rocket"></i> Upload & Submit
               </button>
@@ -276,91 +287,111 @@ async function loadProfessors() {
 
 async function submitUpload(profile) {
   const btn = document.getElementById('submit-upload');
+  const progressContainer = document.getElementById('upload-progress-container');
+  const progressBar = document.getElementById('upload-progress-bar');
+  const progressPercent = document.getElementById('upload-progress-percent');
+  const progressLabel = document.getElementById('upload-progress-label');
   
   try {
     // Rate limiting check
     const { checkRateLimit, sanitizeText } = await import('../utils/sanitize.js');
-    const rl = checkRateLimit('upload', 10, 60000); // Max 10 uploads per minute
+    const rl = checkRateLimit('upload', 10, 60000);
     if (!rl.allowed) {
       showToast(`Too many upload attempts. Please wait ${Math.ceil(rl.remainingMs/1000)}s`, 'error');
       return;
     }
 
     const rawTitle = document.getElementById('upload-title').value;
-  const title = sanitizeText(rawTitle, 100);
-  
-  if (!title) { showToast('Please enter a valid title', 'warning'); return; }
-  if (!uploadData.file) { showToast('Please select a file', 'warning'); return; }
+    const title = sanitizeText(rawTitle, 100);
+    
+    if (!title) { showToast('Please enter a valid title', 'warning'); return; }
+    if (!uploadData.file) { showToast('Please select a file', 'warning'); return; }
 
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Uploading...';
+    // Show progress bar and disable button
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Uploading...';
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressPercent.textContent = '0%';
+    progressLabel.textContent = 'Uploading file...';
 
-  // Hash the file (optional, but good for admin reference)
-  const fileHash = await hashFile(uploadData.file);
+    // Animate progress bar appearance
+    gsap.fromTo(progressContainer, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
 
-  const filePath = `uploads/${profile.id}/${Date.now()}-${uploadData.file.name}`;
-  const { uploadFile } = await import('../utils/storage.js');
-  const uploadRes = await uploadFile(filePath, uploadData.file);
-  const fileUrl = uploadRes.url;
+    // Upload directly to Supabase Storage (no duplicate checking)
+    const filePath = `${profile.id}/${Date.now()}-${uploadData.file.name}`;
+    const { uploadFile } = await import('../utils/storage.js');
+    
+    const uploadRes = await uploadFile(filePath, uploadData.file, (percent) => {
+      progressBar.style.width = `${percent}%`;
+      progressPercent.textContent = `${percent}%`;
+      if (percent === 100) {
+        progressLabel.textContent = 'Processing...';
+      }
+    });
 
-  if (uploadRes.error || !fileUrl) {
-    showToast('File upload failed: ' + (uploadRes.error?.message || 'Unknown error'), 'error');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
-    return;
-  }
+    if (uploadRes.error || !uploadRes.url) {
+      showToast('File upload failed: ' + (uploadRes.error?.message || 'Unknown error'), 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
+      progressContainer.style.display = 'none';
+      return;
+    }
 
-  const status = 'pending';
-  const pointsAwarded = 0;
+    // Update progress to "Saving record..."
+    progressLabel.textContent = 'Saving record...';
+    progressBar.style.width = '100%';
+    progressPercent.textContent = '100%';
 
-  // Insert upload record
-  const { data: upload, error: insertError } = await supabase.from('uploads').insert({
-    user_id: profile.id,
-    course_id: uploadData.courseId,
-    teacher_id: uploadData.teacherId,
-    semester: uploadData.semester,
-    type: uploadData.type,
-    title,
-    file_url: fileUrl,
-    file_hash: fileHash,
-    file_size: uploadData.file.size,
-    status,
-    points_awarded: pointsAwarded,
-    reviewed_at: null,
-  }).select().single();
+    // Insert upload record — status: pending (admin must approve)
+    const { data: upload, error: insertError } = await supabase.from('uploads').insert({
+      user_id: profile.id,
+      course_id: uploadData.courseId,
+      teacher_id: uploadData.teacherId,
+      semester: uploadData.semester,
+      type: uploadData.type,
+      title,
+      file_url: uploadRes.url,
+      file_size: uploadData.file.size,
+      status: 'pending',
+      points_awarded: 0,
+      reviewed_at: null,
+    }).select().single();
 
-  if (insertError) {
-    showToast('Upload record failed: ' + insertError.message, 'error');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
-    return;
-  }
+    if (insertError) {
+      showToast('Upload record failed: ' + insertError.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
+      progressContainer.style.display = 'none';
+      return;
+    }
 
-  // Add audit log
-  await supabase.from('audit_logs').insert({
-    user_id: profile.id,
-    upload_id: upload.id,
-    action: 'uploaded',
-  });
+    // Add audit log
+    await supabase.from('audit_logs').insert({
+      user_id: profile.id,
+      upload_id: upload.id,
+      action: 'uploaded',
+    });
 
-  showToast('Upload submitted! It is now pending admin approval.', 'success');
+    // Success animation
+    progressLabel.textContent = '✓ Upload complete!';
+    progressBar.classList.add('upload-progress-bar-success');
+    
+    showToast('Upload submitted! It is now pending admin approval.', 'success');
 
-  // Reset and reload
-  currentStep = 1;
-  document.getElementById('file-preview').style.display = 'none';
-  document.getElementById('file-drop-zone').style.display = 'flex';
-  document.getElementById('submit-upload').disabled = true;
-  document.getElementById('submit-upload').innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
-  document.getElementById('upload-title').value = '';
-  
-    renderUploadPage();
+    // Reset after a short delay
+    setTimeout(() => {
+      renderUploadPage();
+    }, 1500);
+
   } catch (error) {
     console.error('Upload process error:', error);
-    showToast('Upload failed due to unexpected error: ' + error.message, 'error');
+    showToast('Upload failed: ' + error.message, 'error');
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
     }
+    if (progressContainer) progressContainer.style.display = 'none';
   }
 }
 
