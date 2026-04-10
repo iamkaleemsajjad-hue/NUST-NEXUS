@@ -2,13 +2,6 @@
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ebzfjxmdkrggwmpyhzna.supabase.co';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViemZqeG1ka3JnZ3dtcHloem5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTI3OTMsImV4cCI6MjA5MDAyODc5M30.5nnP2yfmT83ARJFbAE8rkvfVEs6asKqLny2K2chWiuU';
 
-// Storj S3 Configuration (Secret keys have been removed for security. Access is via secure Edge Functions)
-// The endpoint and bucket are public references.
-export const STORJ_CONFIG = {
-  endpoint: import.meta.env.VITE_STORJ_ENDPOINT || 'https://gateway.storjshare.io',
-  bucket: import.meta.env.VITE_STORJ_BUCKET || 'nust-nexus-uploads',
-};
-
 // Points Configuration
 export const POINTS = {
   UPLOAD_GENERAL: 5,

@@ -3,11 +3,3 @@
 
 [api]
 enabled = true
-
-[functions]
-# JWT required for Storj proxy functions (default on hosted projects)
-[functions.storj-upload]
-verify_jwt = true
-
-[functions.storj-delete]
-verify_jwt = true
