@@ -120,7 +120,7 @@ CREATE POLICY "feedback_update_admin"
     )
   );
 
--- ── Uploads: dedupe index + nullable file URL (rejected duplicates have no object in Storj) ──
+-- ── Uploads: dedupe index + nullable file URL (rejected duplicates have no object in storage) ──
 ALTER TABLE IF EXISTS public.uploads ALTER COLUMN file_url DROP NOT NULL;
 ALTER TABLE IF EXISTS public.uploads ADD COLUMN IF NOT EXISTS description text;
 

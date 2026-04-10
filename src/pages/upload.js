@@ -299,12 +299,12 @@ async function submitUpload(profile) {
   const fileHash = await hashFile(uploadData.file);
 
   const filePath = `uploads/${profile.id}/${Date.now()}-${uploadData.file.name}`;
-  const { uploadToStorj } = await import('../utils/storj.js');
-  const storjRes = await uploadToStorj(filePath, uploadData.file);
-  const fileUrl = storjRes.url;
+  const { uploadFile } = await import('../utils/storage.js');
+  const uploadRes = await uploadFile(filePath, uploadData.file);
+  const fileUrl = uploadRes.url;
 
-  if (storjRes.error || !fileUrl) {
-    showToast('File upload failed: ' + (storjRes.error?.message || 'Unknown error'), 'error');
+  if (uploadRes.error || !fileUrl) {
+    showToast('File upload failed: ' + (uploadRes.error?.message || 'Unknown error'), 'error');
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Upload & Submit';
     return;

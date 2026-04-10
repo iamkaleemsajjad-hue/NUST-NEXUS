@@ -2,13 +2,6 @@
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '***REMOVED-ANON-KEY***';
 
-// Storj S3 Configuration (Secret keys have been removed for security. Access is via secure Edge Functions)
-// The endpoint and bucket are public references.
-export const STORJ_CONFIG = {
-  endpoint: import.meta.env.VITE_STORJ_ENDPOINT || 'https://gateway.storjshare.io',
-  bucket: import.meta.env.VITE_STORJ_BUCKET || 'nust-nexus-uploads',
-};
-
 // Points Configuration
 export const POINTS = {
   UPLOAD_GENERAL: 5,
