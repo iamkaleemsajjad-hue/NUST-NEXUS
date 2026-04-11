@@ -18,9 +18,9 @@ const BUCKET = 'uploads';
  * @returns {Promise<{ url: string|null, error: Error|null }>}
  */
 export async function uploadFile(path, file, onProgress) {
+  let progressInterval = null;
   try {
     // Start simulated progress
-    let progressInterval = null;
     let currentProgress = 0;
 
     if (onProgress) {
@@ -68,6 +68,8 @@ export async function uploadFile(path, file, onProgress) {
 
     return { url: urlData.publicUrl, error: null };
   } catch (err) {
+    if (progressInterval) clearInterval(progressInterval);
+    if (onProgress) onProgress(0);
     return { url: null, error: err };
   }
 }
