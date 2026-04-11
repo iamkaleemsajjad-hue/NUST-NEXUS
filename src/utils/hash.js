@@ -1,17 +1,25 @@
 /**
- * Generate SHA-256 hash of a file using Web Crypto API
+ * NUST NEXUS — File Hashing Utility
+ * SHA-256 hashing via Web Crypto API for duplicate detection.
+ */
+
+/**
+ * Generate a SHA-256 hex hash of a File object.
+ * @param {File} file
+ * @returns {Promise<string>}
  */
 export async function hashFile(file) {
-  // Read only the first 1MB of the file for lightning-fast verification
-  const sliceSize = Math.min(file.size, 1024 * 1024);
-  const buffer = await file.slice(0, sliceSize).arrayBuffer();
+  const buffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
- * Check if file hash already exists in database
+ * Check whether a file with the given hash already exists in the uploads table.
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase
+ * @param {string} fileHash
+ * @returns {Promise<boolean>} true if no duplicate exists
  */
 export async function isFileUnique(supabase, fileHash) {
   const { data, error } = await supabase
@@ -19,11 +27,10 @@ export async function isFileUnique(supabase, fileHash) {
     .select('id')
     .eq('file_hash', fileHash)
     .limit(1);
-  
-  // Fail closed: if we cannot verify uniqueness, do not allow upload (avoids duplicate storage)
+
   if (error) {
     console.error('Hash check error:', error);
-    return false;
+    return true; // Allow on error
   }
 
   return !data || data.length === 0;
