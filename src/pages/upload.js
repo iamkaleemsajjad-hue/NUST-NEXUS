@@ -319,7 +319,9 @@ async function submitUpload(profile) {
     gsap.fromTo(progressContainer, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
 
     // Upload directly to Supabase Storage (no duplicate checking)
-    const filePath = `${profile.id}/${Date.now()}-${uploadData.file.name}`;
+    // Sanitize the file name to prevent path issues that cause uploads to get stuck
+    const safeName = uploadData.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const filePath = `${profile.id}/${Date.now()}-${safeName}`;
     const { uploadFile } = await import('../utils/storage.js');
     
     const uploadRes = await uploadFile(filePath, uploadData.file, (percent) => {

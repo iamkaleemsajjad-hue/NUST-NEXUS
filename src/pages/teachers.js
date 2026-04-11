@@ -80,8 +80,8 @@ async function loadTeachers(profile) {
     commentCountMap[c.teacher_id] = (commentCountMap[c.teacher_id] || 0) + 1;
   });
 
-  // Admin can rate any teacher; students can only rate teachers from their own school
-  const canRate = (teacher) => adminUser || teacher.schools?.name === profile.school;
+  // Anyone can rate any teacher
+  const canRate = (teacher) => true;
 
   container.innerHTML = `
     <div class="teacher-grid grid-3">
