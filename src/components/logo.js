@@ -5,8 +5,8 @@
  * @param {string} height - SVG logic height
  * @returns {string} Raw SVG HTML
  */
-export function getLogoSVG(className = "", width = "100%", height = "100%", forceWhite = false) {
-  const pillarColor = forceWhite ? "#FFFFFF" : "#087C9F";
+export function getLogoSVG(className = "", width = "100%", height = "100%", forceWhite = false, darkerRight = false) {
+  const pillarColor = forceWhite ? "#FFFFFF" : (darkerRight ? "#056683" : "#087C9F");
   const leftPillarColor = forceWhite ? "#E8ECEE" : "#2C3E50";
   const stopColor1 = forceWhite ? "#FFFFFF" : "#087C9F";
   const stopColor2 = forceWhite ? "#C1E0F8" : "#C1E0F8";
