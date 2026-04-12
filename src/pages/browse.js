@@ -145,9 +145,16 @@ async function loadResources(profile, accessibleSemesters) {
                 <i class="fa-solid fa-user"></i> ${r.profiles?.display_name || 'Unknown'} •
                 ${new Date(r.created_at).toLocaleDateString()}
               </span>
-              <button class="btn btn-primary btn-sm download-btn" data-id="${r.id}" data-url="${r.file_url}" data-title="${escapeHtml(r.title)}" data-type="${r.type}">
-                <i class="fa-solid fa-download"></i> Download
-              </button>
+              <div style="display:flex;gap:8px;">
+                ${adminUser ? `
+                  <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="window.deleteUpload('${r.id}', '${r.file_url}')" title="Delete Resource">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                ` : ''}
+                <button class="btn btn-primary btn-sm download-btn" data-id="${r.id}" data-url="${r.file_url}" data-title="${escapeHtml(r.title)}" data-type="${r.type}">
+                  <i class="fa-solid fa-download"></i> Download
+                </button>
+              </div>
             </div>
           </div>
         `;
@@ -204,4 +211,39 @@ async function loadResources(profile, accessibleSemesters) {
       import('../components/toast.js').then(m => m.showToast(`Downloading: ${title}`, 'success'));
     });
   });
+
+  // Attach global click handler for deleting uploads
+  window.deleteUpload = async (id, fileUrl) => {
+    if(!confirm('Are you strictly sure you want to permanently delete this resource and its associated file?')) return;
+    
+    // Attempt to delete from Supabase storage first
+    try {
+      const urlObj = new URL(fileUrl);
+      const pathParts = urlObj.pathname.split('/public/uploads/');
+      if (pathParts.length > 1) {
+        const filePath = decodeURIComponent(pathParts[1]); 
+        
+        // Remove from storage bucket
+        const { error: storageError } = await supabase.storage.from('uploads').remove([filePath]);
+        if (storageError) {
+          console.warn('Storage deletion error:', storageError);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not parse file URL for storage deletion', e);
+    }
+
+    // Now delete DB record
+    const { error } = await supabase.from('uploads').delete().eq('id', id);
+    if (error) {
+      import('../components/toast.js').then(m => m.showToast('Error deleting record: ' + error.message, 'error'));
+      return;
+    }
+    
+    import('../components/toast.js').then(m => m.showToast('Resource permanently deleted', 'success'));
+    
+    // Reload the view
+    const btn = document.getElementById('filter-btn');
+    if (btn) btn.click();
+  };
 }
