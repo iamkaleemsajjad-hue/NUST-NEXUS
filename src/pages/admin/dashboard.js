@@ -4,6 +4,7 @@ import { renderHeader, initHeader, setBreadcrumb } from '../../components/header
 import { showToast } from '../../components/toast.js';
 import { supabase } from '../../utils/supabase.js';
 import { router } from '../../router.js';
+import { subscribeToTable } from '../../utils/realtime.js';
 import gsap from 'gsap';
 
 export async function renderAdminDashboard() {
@@ -192,4 +193,10 @@ export async function renderAdminDashboard() {
   };
 
   window.loadPendingUploads();
+
+  // Real-time: auto-refresh pending uploads when any upload changes
+  subscribeToTable('admin-pending-uploads', 'uploads', null, (payload) => {
+    console.log('[realtime] uploads changed:', payload.eventType);
+    window.loadPendingUploads();
+  });
 }

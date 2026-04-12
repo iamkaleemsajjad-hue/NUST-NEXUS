@@ -18,6 +18,8 @@ import { renderAdminCourses } from './pages/admin/courses.js';
 import { renderAdminNotifications } from './pages/admin/notifications.js';
 import { renderAdminFeedback } from './pages/admin/feedback.js';
 import { renderAdminRatings } from './pages/admin/ratings.js';
+import { renderLoginHistoryPage } from './pages/admin/login-history.js';
+import { unsubscribeAll } from './utils/realtime.js';
 
 // Public routes (no auth required)
 const publicRoutes = ['/login'];
@@ -38,9 +40,45 @@ router.addRoute('/admin/courses', renderAdminCourses);
 router.addRoute('/admin/notifications', renderAdminNotifications);
 router.addRoute('/admin/feedback', renderAdminFeedback);
 router.addRoute('/admin/ratings', renderAdminRatings);
+router.addRoute('/admin/login-history', renderLoginHistoryPage);
 
-// Auth guard
+// Auth guard + cleanup + instant skeleton
 router.beforeEach = async (to) => {
+  // Cleanup realtime subscriptions on every navigation
+  unsubscribeAll();
+
+  // Show instant skeleton loader on navigation (except login)
+  if (!publicRoutes.includes(to)) {
+    const app = document.getElementById('app');
+    if (app) {
+      app.innerHTML = `
+        <div class="app-layout">
+          <aside class="sidebar" style="pointer-events:none;">
+            <div class="sidebar-header"><div style="display:flex;align-items:center;gap:12px;padding:20px;"><div class="skeleton" style="width:36px;height:36px;border-radius:50%;"></div><div class="skeleton skeleton-text" style="width:100px;"></div></div></div>
+            <nav style="padding:0 12px;">${Array(7).fill('').map(() => `<div class="skeleton skeleton-text" style="height:40px;margin:6px 0;border-radius:8px;"></div>`).join('')}</nav>
+          </aside>
+          <div class="main-content">
+            <header class="top-header" style="pointer-events:none;">
+              <div style="display:flex;align-items:center;gap:12px;padding:0 20px;">
+                <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
+                <div class="skeleton skeleton-text" style="width:120px;"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:0 20px;">
+                <div class="skeleton skeleton-text" style="width:80px;"></div>
+                <div class="skeleton" style="width:36px;height:36px;border-radius:50%;"></div>
+              </div>
+            </header>
+            <div class="page-container">
+              <div class="skeleton skeleton-text" style="width:200px;height:28px;margin-bottom:24px;"></div>
+              <div class="grid-3">${Array(3).fill('').map(() => `<div class="card" style="pointer-events:none;"><div class="skeleton skeleton-text" style="width:50%;height:14px;"></div><div class="skeleton skeleton-text" style="width:70%;height:32px;margin-top:12px;"></div></div>`).join('')}</div>
+              <div class="card" style="margin-top:24px;pointer-events:none;"><div class="skeleton skeleton-text" style="width:40%;"></div><div class="skeleton skeleton-text" style="width:100%;height:120px;margin-top:12px;"></div></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
   if (publicRoutes.includes(to)) return true;
   
   const { data: { user } } = await supabase.auth.getUser();
@@ -126,6 +164,9 @@ async function init() {
       }
     }
   });
+
+  // ── Inactivity Auto-Logout (2 hours) ──
+  initInactivityTracker();
 }
 
 // Add ripple effect to buttons
@@ -140,5 +181,34 @@ document.addEventListener('click', (e) => {
   }
 });
 
+/**
+ * Auto-logout after 2 hours of inactivity.
+ * Tracks mouse, keyboard, scroll, and touch events.
+ */
+function initInactivityTracker() {
+  const INACTIVITY_LIMIT = 2 * 60 * 60 * 1000; // 2 hours in ms
+  let inactivityTimer = null;
+
+  function resetTimer() {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        console.warn('[inactivity] Auto-logging out after 2 hours of inactivity');
+        await supabase.auth.signOut();
+        router.navigate('/login');
+      }
+    }, INACTIVITY_LIMIT);
+  }
+
+  // Track user activity
+  const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+  events.forEach(evt => document.addEventListener(evt, resetTimer, { passive: true }));
+
+  // Start the timer
+  resetTimer();
+}
+
 // Start
 init();
+

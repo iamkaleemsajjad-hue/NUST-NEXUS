@@ -122,6 +122,12 @@ export async function renderUploadPage() {
                 </div>
               </div>
               <button class="btn btn-ghost btn-sm step-back-btn" id="back-to-2"><i class="fa-solid fa-arrow-left"></i> Back</button>
+              <div style="margin:var(--space-md) 0;">
+                <div style="position:relative;">
+                  <i class="fa-solid fa-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i>
+                  <input type="text" class="form-input" id="professor-search" placeholder="Search professors by name..." style="padding-left:40px;" />
+                </div>
+              </div>
               <div id="professor-list" class="selection-grid"></div>
             </div>
 
@@ -227,6 +233,12 @@ export async function renderUploadPage() {
   setBreadcrumb('Upload Resources');
   initUploadWizard(profile);
   loadUserUploads(user.id);
+
+  // Entrance animations
+  gsap.fromTo('.upload-page-header', { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power3.out' });
+  gsap.fromTo('.wizard-steps', { y: -10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, delay: 0.15, ease: 'power2.out' });
+  gsap.fromTo('.upload-wizard-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, delay: 0.25, ease: 'power3.out' });
+  gsap.fromTo('.selection-btn', { y: 15, opacity: 0, scale: 0.9 }, { y: 0, opacity: 1, scale: 1, duration: 0.3, stagger: 0.04, delay: 0.35, ease: 'back.out(1.4)' });
 }
 
 /* ── Wizard Initialization ─────────────────────────────── */
@@ -361,7 +373,13 @@ function clearFile() {
 /* ── Courses & Professors ──────────────────────────────── */
 async function loadCourses(profile) {
   const container = document.getElementById('course-list');
-  container.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  // Skeleton loading grid
+  container.innerHTML = Array(6).fill('').map(() => `
+    <div class="selection-btn" style="pointer-events:none;">
+      <div class="skeleton skeleton-text" style="width:60%;margin:0 auto;"></div>
+      <div class="skeleton skeleton-text" style="width:80%;margin:6px auto 0;"></div>
+    </div>
+  `).join('');
 
   const { data: school } = await supabase
     .from('schools').select('id').eq('name', profile.school).single();
@@ -394,6 +412,9 @@ async function loadCourses(profile) {
     </button>
   `).join('');
 
+  // Animate course cards in
+  gsap.fromTo('.course-btn', { y: 12, opacity: 0, scale: 0.95 }, { y: 0, opacity: 1, scale: 1, duration: 0.3, stagger: 0.04, ease: 'back.out(1.3)' });
+
   container.querySelectorAll('.course-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       uploadData.courseId = btn.dataset.id;
@@ -403,21 +424,30 @@ async function loadCourses(profile) {
   });
 }
 
-async function loadProfessors() {
+async function loadProfessors(searchQuery) {
   const container = document.getElementById('professor-list');
-  container.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  // Skeleton loading
+  container.innerHTML = Array(8).fill('').map(() => `
+    <div class="selection-btn" style="pointer-events:none;">
+      <div class="skeleton skeleton-avatar" style="width:48px;height:48px;margin:0 auto 8px;"></div>
+      <div class="skeleton skeleton-text" style="width:70%;margin:0 auto;"></div>
+      <div class="skeleton skeleton-text" style="width:50%;margin:4px auto 0;"></div>
+    </div>
+  `).join('');
 
   // Get user's school
   const { data: profileRow } = await supabase
     .from('profiles').select('school').eq('id', (await getCurrentUser()).id).single();
   const { data: school } = await supabase
     .from('schools').select('id').eq('name', profileRow.school).single();
-  const { data: allTeachers } = await supabase
-    .from('teachers').select('*').eq('school_id', school?.id).order('name');
+  
+  let query = supabase.from('teachers').select('*').eq('school_id', school?.id).order('name');
+  if (searchQuery) query = query.ilike('name', `%${searchQuery}%`);
+  const { data: allTeachers } = await query;
 
   const teacherList = allTeachers || [];
 
-  if (teacherList.length === 0) {
+  if (teacherList.length === 0 && !searchQuery) {
     container.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-chalkboard-user"></i>
@@ -433,19 +463,43 @@ async function loadProfessors() {
     return;
   }
 
-  container.innerHTML = teacherList.map(t => `
-    <button class="selection-btn" data-id="${t.id}">
-      <i class="fa-solid fa-chalkboard-user"></i>
-      <span>${t.name}</span>
-      <span class="selection-sub">${t.designation}</span>
-    </button>
-  `).join('') + `
+  if (teacherList.length === 0 && searchQuery) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding:var(--space-xl);">
+        <i class="fa-solid fa-user-slash"></i>
+        <p style="color:var(--text-muted);">No professors matching "${searchQuery}"</p>
+      </div>
+      <button class="btn btn-ghost btn-block" id="skip-professor" style="margin-top:12px;">Skip Professor</button>
+    `;
+    document.getElementById('skip-professor')?.addEventListener('click', () => {
+      uploadData.teacherId = null;
+      goToStep(4);
+    });
+    return;
+  }
+
+  container.innerHTML = teacherList.map(t => {
+    const initials = t.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    const avatarHtml = t.avatar_url
+      ? `<img src="${t.avatar_url}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);" alt="${t.name}" />`
+      : `<div class="avatar avatar-placeholder" style="width:48px;height:48px;font-size:0.85rem;margin:0 auto;">${initials}</div>`;
+    return `
+      <button class="selection-btn professor-btn" data-id="${t.id}" style="flex-direction:column;align-items:center;text-align:center;gap:6px;">
+        ${avatarHtml}
+        <span style="font-weight:600;">${t.name}</span>
+        <span class="selection-sub" style="font-size:0.75rem;color:var(--text-muted);">${t.designation}</span>
+      </button>
+    `;
+  }).join('') + `
     <button class="btn btn-ghost btn-block" id="skip-professor" style="margin-top:12px;">
       Skip Professor
     </button>
   `;
 
-  container.querySelectorAll('.selection-btn').forEach(btn => {
+  // Animate cards in
+  gsap.fromTo('.professor-btn', { y: 15, opacity: 0, scale: 0.95 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, stagger: 0.04, ease: 'back.out(1.4)' });
+
+  container.querySelectorAll('.professor-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       uploadData.teacherId = btn.dataset.id;
       goToStep(4);
@@ -456,6 +510,17 @@ async function loadProfessors() {
     uploadData.teacherId = null;
     goToStep(4);
   });
+
+  // Wire up search with debounce
+  const searchInput = document.getElementById('professor-search');
+  if (searchInput && !searchInput._hasListener) {
+    searchInput._hasListener = true;
+    let timer;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => loadProfessors(searchInput.value.trim()), 300);
+    });
+  }
 }
 
 /* ── Upload Submission ─────────────────────────────────── */

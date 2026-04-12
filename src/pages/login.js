@@ -64,6 +64,12 @@ export async function renderLoginPage() {
               <i class="fa-solid fa-right-to-bracket"></i> Sign In
             </button>
 
+            <div style="text-align:center;margin-top:var(--space-md);">
+              <a href="javascript:void(0)" id="forgot-password-link" style="color:var(--text-secondary);font-size:0.8125rem;text-decoration:underline;cursor:pointer;">
+                <i class="fa-solid fa-key" style="margin-right:4px;"></i>Forgot password? Sign up again &amp; reset in Settings
+              </a>
+            </div>
+
             <!-- Feedback Button inside the card -->
             <div class="login-inline-feedback text-center">
               <button type="button" class="btn btn-ghost btn-block" id="public-feedback-btn">
@@ -193,6 +199,12 @@ function initLoginEvents() {
     otpSection.style.display = 'none';
     formHeader.querySelector('h2').textContent = 'Create Account';
     formHeader.querySelector('p').textContent = 'Join the NUST NEXUS community';
+  });
+
+  // Forgot password → switch to sign up tab
+  document.getElementById('forgot-password-link')?.addEventListener('click', () => {
+    tabSignup?.click();
+    showToast('Sign up again , then reset your password in Settings !', 'info');
   });
 
   // Password toggles

@@ -6,6 +6,7 @@ import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js
 import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
+import { subscribeToTable } from '../utils/realtime.js';
 import gsap from 'gsap';
 
 export async function renderDashboardPage() {
@@ -141,11 +142,50 @@ export async function renderDashboardPage() {
   setBreadcrumb('Dashboard');
   loadRecentUploads(user.id);
 
-  // Animations
+  // Animations - enhanced with text reveals
   gsap.fromTo('#dash-welcome', { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' });
-  gsap.fromTo('.stat-card', { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.1, delay: 0.2, ease: 'power3.out' });
+  
+  // Text typing animation for welcome heading
+  const welcomeH2 = document.querySelector('#dash-welcome h2');
+  if (welcomeH2) {
+    const text = welcomeH2.textContent;
+    welcomeH2.textContent = '';
+    welcomeH2.style.borderRight = '2px solid var(--primary)';
+    let i = 0;
+    const typeInterval = setInterval(() => {
+      welcomeH2.textContent += text[i];
+      i++;
+      if (i >= text.length) {
+        clearInterval(typeInterval);
+        setTimeout(() => { welcomeH2.style.borderRight = 'none'; }, 600);
+      }
+    }, 30);
+  }
+
+  gsap.fromTo('.stat-card', { y: 30, opacity: 0, scale: 0.9 }, { y: 0, opacity: 1, scale: 1, duration: 0.5, stagger: 0.1, delay: 0.3, ease: 'back.out(1.4)' });
+  
+  // Animate stat numbers counting up
+  document.querySelectorAll('.stat-value').forEach(el => {
+    const target = parseInt(el.textContent) || 0;
+    if (target > 0) {
+      el.textContent = '0';
+      gsap.to({ val: 0 }, { val: target, duration: 1.2, delay: 0.5, ease: 'power2.out', onUpdate: function() { el.textContent = Math.round(this.targets()[0].val); }});
+    }
+  });
+
   gsap.fromTo('#dash-history', { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, delay: 0.5, ease: 'power3.out' });
   gsap.fromTo('#dash-uploads', { x: 30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, delay: 0.5, ease: 'power3.out' });
+  
+  // Add hover lift effect to all cards
+  document.querySelectorAll('.stat-card, .card').forEach(card => {
+    card.addEventListener('mouseenter', () => gsap.to(card, { y: -4, boxShadow: '0 8px 24px rgba(0,0,0,0.3)', duration: 0.25, ease: 'power2.out' }));
+    card.addEventListener('mouseleave', () => gsap.to(card, { y: 0, boxShadow: '', duration: 0.25, ease: 'power2.out' }));
+  });
+
+  // Real-time: auto-refresh when user's uploads change status
+  subscribeToTable('dashboard-my-uploads', 'uploads', `user_id=eq.${user.id}`, () => {
+    loadRecentUploads(user.id);
+  });
 
   // Avatar upload
   document.getElementById('avatar-input')?.addEventListener('change', async (e) => {
