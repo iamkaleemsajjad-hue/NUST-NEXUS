@@ -4,13 +4,12 @@
  */
 
 import { supabase } from './supabase.js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 
 const BUCKET = 'uploads';
 
 /**
  * Upload a file directly to Supabase Storage.
- * Uses XMLHttpRequest under the hood to bypass fetch streaming bugs and provide real upload progress tracking.
+ * Uses XMLHttpRequest for real upload progress tracking.
  *
  * @param {string} path  – Storage key, e.g. "userId/1712345678-report.pdf"
  * @param {File}   file  – The browser File object
@@ -18,27 +17,25 @@ const BUCKET = 'uploads';
  */
 export async function uploadFile(path, file, onProgress) {
   try {
-    console.log('[uploadFile] Starting XHR upload for', path, 'Type:', file.type, 'Size:', file.size);
+    console.log('[uploadFile] Starting upload for', path, 'Type:', file.type, 'Size:', file.size);
     if (onProgress) onProgress(0);
 
-    let token = SUPABASE_ANON_KEY; // Fallback
+    // Get auth token safely via Supabase SDK
+    let token;
     try {
-      // Bypass supabase.auth.getSession() lock bugs by synchronously grabbing from storage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('-auth-token')) {
-          const stored = JSON.parse(localStorage.getItem(key));
-          if (stored?.access_token) {
-            token = stored.access_token;
-            break;
-          }
-        }
-      }
-    } catch(e) {
-      console.warn('[uploadFile] Could not get session token:', e);
+      const { data: { session } } = await supabase.auth.getSession();
+      token = session?.access_token;
+    } catch (e) {
+      console.warn('[uploadFile] Could not get session:', e);
     }
 
-    const uploadUrl = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`;
+    if (!token) {
+      return { url: null, error: new Error('Not authenticated. Please log in and try again.') };
+    }
+
+    const { data: { publicUrl: baseUrl } } = supabase.storage.from(BUCKET).getPublicUrl('');
+    const supabaseUrl = baseUrl.replace(`/storage/v1/object/public/${BUCKET}/`, '');
+    const uploadUrl = `${supabaseUrl}/storage/v1/object/${BUCKET}/${path}`;
 
     return await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -52,36 +49,34 @@ export async function uploadFile(path, file, onProgress) {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          console.log('[uploadFile] XHR Upload successful', xhr.status);
+          console.log('[uploadFile] Upload successful', xhr.status);
           const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
           resolve({ url: urlData.publicUrl, error: null });
         } else {
-          console.error('[uploadFile] XHR Upload failed', xhr.status, xhr.responseText);
+          console.error('[uploadFile] Upload failed', xhr.status, xhr.responseText);
           resolve({ url: null, error: new Error(`Upload failed (${xhr.status}): ${xhr.responseText}`) });
         }
       };
 
       xhr.onerror = () => {
-        console.error('[uploadFile] XHR Network error');
+        console.error('[uploadFile] Network error');
         resolve({ url: null, error: new Error('Network error occurred during upload. Check your connection or firewall.') });
       };
 
       xhr.onabort = () => {
-        console.warn('[uploadFile] XHR Upload aborted');
+        console.warn('[uploadFile] Upload aborted');
         resolve({ url: null, error: new Error('Upload was aborted.') });
       };
       
       xhr.ontimeout = () => {
-        console.warn('[uploadFile] XHR Upload timed out');
+        console.warn('[uploadFile] Upload timed out');
         resolve({ url: null, error: new Error('Upload timed out after 30 seconds.') });
       }
 
       xhr.open('POST', uploadUrl, true);
-      xhr.timeout = 30000; // 30 seconds timeout
+      xhr.timeout = 30000;
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY);
       xhr.setRequestHeader('Cache-Control', '3600');
-      // x-upsert header tells supabase storage whether to overwrite existing object
       xhr.setRequestHeader('x-upsert', 'false');
       
       if (file.type) {

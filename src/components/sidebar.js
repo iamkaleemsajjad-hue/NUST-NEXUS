@@ -33,6 +33,7 @@ export function renderSidebar(profile) {
     { href: '/admin/feedback', icon: 'fa-comments', label: 'Feedback Management' },
     { href: '/admin/ratings', icon: 'fa-star', label: 'Teacher Ratings' },
     { href: '/admin/notifications', icon: 'fa-bell', label: 'Notifications' },
+    { href: '/admin/login-history', icon: 'fa-clock-rotate-left', label: 'Login History' },
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;

@@ -7,6 +7,7 @@ import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
 import { UPLOAD_TYPES } from '../config.js';
 import { escapeHtml, sanitizeText } from '../utils/sanitize.js';
+import { subscribeToTable } from '../utils/realtime.js';
 import gsap from 'gsap';
 
 export async function renderBrowsePage() {
@@ -66,11 +67,24 @@ export async function renderBrowsePage() {
   initSidebar(); initHeader(profile); setBreadcrumb('Browse Resources');
 
   document.getElementById('filter-btn')?.addEventListener('click', () => loadResources(profile, accessibleSemesters));
-  document.getElementById('filter-search')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') loadResources(profile, accessibleSemesters);
+  
+  // Debounced search
+  let searchTimer;
+  document.getElementById('filter-search')?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadResources(profile, accessibleSemesters), 400);
   });
 
   loadResources(profile, accessibleSemesters);
+
+  // Entrance animations
+  gsap.fromTo('.filter-section', { y: -15, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power3.out' });
+  gsap.fromTo('#resources-container', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, delay: 0.2, ease: 'power3.out' });
+
+  // Real-time: auto-refresh when uploads change
+  subscribeToTable('browse-uploads', 'uploads', 'status=eq.approved', () => {
+    loadResources(profile, accessibleSemesters);
+  });
 }
 
 async function loadResources(profile, accessibleSemesters) {

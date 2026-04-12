@@ -134,14 +134,38 @@ export function initHeader(profile) {
     });
   }
 
-  // Make header menu button toggle the completely collapsible sidebar
+  // Make header menu button toggle sidebar + overlay on mobile
   const toggleBtn = document.getElementById('sidebar-toggle-btn');
   if (toggleBtn) {
     toggleBtn.addEventListener('click', () => {
       const sidebar = document.getElementById('sidebar');
       const mainContent = document.querySelector('.main-content');
-      sidebar?.classList.toggle('collapsed');
-      mainContent?.classList.toggle('collapsed');
+      const isMobile = window.innerWidth <= 768;
+
+      if (isMobile) {
+        // Mobile: use slide-in overlay
+        sidebar?.classList.toggle('mobile-open');
+        let overlay = document.getElementById('sidebar-overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.id = 'sidebar-overlay';
+          overlay.className = 'sidebar-overlay';
+          document.body.appendChild(overlay);
+          overlay.addEventListener('click', () => {
+            sidebar?.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+          });
+        }
+        if (sidebar?.classList.contains('mobile-open')) {
+          overlay.classList.add('active');
+        } else {
+          overlay.classList.remove('active');
+        }
+      } else {
+        // Desktop: collapse
+        sidebar?.classList.toggle('collapsed');
+        mainContent?.classList.toggle('collapsed');
+      }
     });
   }
 

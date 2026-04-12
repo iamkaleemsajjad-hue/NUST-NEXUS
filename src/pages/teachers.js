@@ -24,16 +24,32 @@ export async function renderTeachersPage() {
           <h2 style="margin-bottom:var(--space-xl);"><i class="fa-solid fa-chalkboard-user"></i> Teacher Profiles</h2>
           
           <div class="card" style="margin-bottom:var(--space-lg);">
-            <div style="display:flex;gap:var(--space-md);">
-              <input type="text" class="form-input" id="teacher-search" 
-                placeholder="Search teachers by name..." style="flex:1;" />
-              <button class="btn btn-primary" id="teacher-search-btn">
-                <i class="fa-solid fa-search"></i> Search
-              </button>
+            <div style="display:flex;gap:var(--space-md);align-items:center;">
+              <div style="position:relative;flex:1;">
+                <i class="fa-solid fa-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i>
+                <input type="text" class="form-input" id="teacher-search" 
+                  placeholder="Search teachers by name or designation..." style="padding-left:40px;" />
+              </div>
+              <div style="color:var(--text-muted);font-size:0.8125rem;white-space:nowrap;" id="teacher-count"></div>
             </div>
           </div>
 
-          <div id="teacher-list"></div>
+          <div id="teacher-list">
+            <div class="teacher-grid grid-3">
+              ${Array(6).fill('').map(() => `
+                <div class="card">
+                  <div style="display:flex;align-items:center;gap:var(--space-md);margin-bottom:var(--space-md);">
+                    <div class="skeleton skeleton-avatar" style="width:64px;height:64px;"></div>
+                    <div style="flex:1;">
+                      <div class="skeleton skeleton-text" style="width:70%;"></div>
+                      <div class="skeleton skeleton-text" style="width:50%;"></div>
+                    </div>
+                  </div>
+                  <div class="skeleton skeleton-text" style="width:100%;height:40px;"></div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -43,9 +59,11 @@ export async function renderTeachersPage() {
   initHeader(profile);
   setBreadcrumb('Teacher Profiles');
 
-  document.getElementById('teacher-search-btn')?.addEventListener('click', () => loadTeachers(profile));
-  document.getElementById('teacher-search')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') loadTeachers(profile);
+  // Debounced real-time search
+  let searchTimer;
+  document.getElementById('teacher-search')?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadTeachers(profile), 300);
   });
   
   loadTeachers(profile);
@@ -55,7 +73,11 @@ async function loadTeachers(profile) {
   const container = document.getElementById('teacher-list');
   const search = document.getElementById('teacher-search').value.trim();
   const adminUser = profile.role === 'admin';
-  container.innerHTML = '<div class="skeleton skeleton-card" style="height:300px;"></div>';
+  container.innerHTML = `<div class="teacher-grid grid-3">${Array(6).fill('').map(() => `
+    <div class="card"><div style="display:flex;align-items:center;gap:var(--space-md);margin-bottom:var(--space-md);">
+      <div class="skeleton skeleton-avatar" style="width:64px;height:64px;"></div>
+      <div style="flex:1;"><div class="skeleton skeleton-text" style="width:70%;"></div><div class="skeleton skeleton-text" style="width:50%;"></div></div>
+    </div><div class="skeleton skeleton-text" style="width:100%;height:40px;"></div></div>`).join('')}</div>`;
 
   let query = supabase.from('teachers').select('*, schools(name)').order('name');
   if (search) query = query.ilike('name', `%${search}%`);
@@ -128,7 +150,11 @@ async function loadTeachers(profile) {
     </div>
   `;
 
-  gsap.fromTo('.teacher-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, stagger: 0.05, ease: 'power3.out' });
+  // Update count
+  const countEl = document.getElementById('teacher-count');
+  if (countEl) countEl.textContent = `${teachers.length} teacher${teachers.length !== 1 ? 's' : ''} found`;
+
+  gsap.fromTo('.teacher-card', { y: 30, opacity: 0, scale: 0.95 }, { y: 0, opacity: 1, scale: 1, duration: 0.5, stagger: 0.06, ease: 'back.out(1.2)' });
 
   container.querySelectorAll('.view-teacher-btn').forEach(btn => {
     btn.addEventListener('click', () => showTeacherProfile(btn.dataset.id, btn.dataset.canRate === 'true', profile));
