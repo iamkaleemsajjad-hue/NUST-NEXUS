@@ -127,7 +127,7 @@ async function loadFeedback(userId) {
         </span>
       </div>
       ${f.admin_reply ? `
-        <div style="margin-top:var(--space-md);padding:var(--space-md);background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.15);border-radius:var(--radius-md);">
+        <div style="margin-top:var(--space-md);padding:var(--space-md);background:rgba(var(--success-rgb),0.05);border:1px solid rgba(var(--success-rgb),0.15);border-radius:var(--radius-md);">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--space-sm);">
             <i class="fa-solid fa-reply" style="color:var(--success);"></i>
             <strong style="color:var(--success);font-size:0.875rem;">Admin Reply</strong>

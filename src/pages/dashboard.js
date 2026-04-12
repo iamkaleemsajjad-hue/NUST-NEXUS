@@ -47,7 +47,7 @@ export async function renderDashboardPage() {
                 </div>
               </div>
               <div class="welcome-info">
-                <h1>Welcome back, <span class="text-gradient">${profile.display_name}</span>!</h1>
+                <h1>Welcome back, <span style="color:var(--primary); font-weight:700;">${profile.display_name}</span>!</h1>
                 <p class="welcome-meta">
                   <span><i class="fa-solid fa-school"></i> ${getSchoolFullName(profile.school)}</span>
                   <span><i class="fa-solid fa-graduation-cap"></i> ${profile.degree}</span>
@@ -60,16 +60,16 @@ export async function renderDashboardPage() {
           <!-- Stats Grid -->
           <div class="grid-4 dash-stats" id="dash-stats">
             <div class="stat-card card">
-              <div class="stat-icon" style="background:rgba(241,196,15,0.1);color:#F1C40F;">
+              <div class="stat-icon" style="background:rgba(var(--warning-rgb),0.1);color:var(--warning);">
                 <i class="fa-solid fa-coins"></i>
               </div>
               <div class="stat-info">
-                <span class="stat-value" id="stat-points" style="color:#F1C40F;text-shadow:0 0 10px rgba(241,196,15,0.2);">${profile.points || 0}</span>
+                <span class="stat-value" id="stat-points" style="color:var(--warning);">${profile.points || 0}</span>
                 <span class="stat-label">Reward Points</span>
               </div>
             </div>
             <div class="stat-card card">
-              <div class="stat-icon" style="background:rgba(0,255,136,0.1);color:var(--success);">
+              <div class="stat-icon" style="background:rgba(var(--success-rgb),0.1);color:var(--success);">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
               </div>
               <div class="stat-info">
@@ -78,7 +78,7 @@ export async function renderDashboardPage() {
               </div>
             </div>
             <div class="stat-card card">
-              <div class="stat-icon" style="background:rgba(26,188,254,0.1);color:var(--accent);">
+              <div class="stat-icon" style="background:rgba(var(--secondary-rgb),0.1);color:var(--secondary);">
                 <i class="fa-solid fa-cloud-arrow-down"></i>
               </div>
               <div class="stat-info">
@@ -195,15 +195,15 @@ async function loadRecentUploads(userId) {
   }
 
   const statusStyles = {
-    pending: { color: 'var(--warning)', bg: 'rgba(255,184,0,0.1)', icon: 'fa-clock', label: 'Pending' },
-    approved: { color: 'var(--success)', bg: 'rgba(0,255,136,0.1)', icon: 'fa-circle-check', label: 'Approved' },
-    rejected: { color: 'var(--danger)', bg: 'rgba(255,59,92,0.1)', icon: 'fa-circle-xmark', label: 'Rejected' },
+    pending: { color: 'var(--warning)', bg: 'rgba(var(--warning-rgb),0.1)', icon: 'fa-clock', label: 'Pending' },
+    approved: { color: 'var(--success)', bg: 'rgba(var(--success-rgb),0.1)', icon: 'fa-circle-check', label: 'Approved' },
+    rejected: { color: 'var(--danger)', bg: 'rgba(var(--danger-rgb),0.1)', icon: 'fa-circle-xmark', label: 'Rejected' },
   };
 
   container.innerHTML = data.map(u => {
     const s = statusStyles[u.status] || statusStyles.pending;
     return `
-      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--grid);">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
         <div style="width:4px;height:36px;border-radius:2px;background:${s.color};"></div>
         <div style="flex:1;min-width:0;">
           <div style="font-weight:500;font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.title}</div>

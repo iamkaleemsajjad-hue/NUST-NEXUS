@@ -100,7 +100,7 @@ async function loadRatings() {
                 <span style="font-family:var(--font-display);font-weight:800;font-size:1.25rem;color:var(--text-muted);">#${idx + 1}</span>
               </div>
               ${t.avatar_url 
-                ? `<img src="${t.avatar_url}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--grid);" />`
+                ? `<img src="${t.avatar_url}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--border);" />`
                 : `<div class="avatar avatar-lg avatar-placeholder" style="width:50px;height:50px;font-size:1rem;">${initials}</div>`
               }
               <div style="flex:1;">
@@ -129,7 +129,7 @@ async function loadRatings() {
                 </summary>
                 <div style="margin-top:var(--space-md);max-height:250px;overflow-y:auto;">
                   ${t.comments.map(c => `
-                    <div style="padding:var(--space-sm) var(--space-md);border-left:2px solid var(--grid);margin-bottom:var(--space-sm);">
+                    <div style="padding:var(--space-sm) var(--space-md);border-left:2px solid var(--border);margin-bottom:var(--space-sm);">
                       <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
                         <strong style="font-size:0.8125rem;">${c.profiles?.display_name || 'Anonymous'}</strong>
                         <span style="color:var(--warning);font-size:0.75rem;">${'★'.repeat(c.rating)}</span>

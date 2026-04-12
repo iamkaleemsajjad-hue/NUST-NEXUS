@@ -194,7 +194,7 @@ async function showTeacherProfile(teacherId, canRate, profile) {
         <h4 style="margin-bottom:var(--space-md);">Comments (${allRatings?.filter(r => r.comment)?.length || 0})</h4>
         <div class="comments-list" style="max-height:300px;overflow-y:auto;">
           ${allRatings?.filter(r => r.comment)?.length ? allRatings.filter(r => r.comment).map(r => `
-            <div class="comment-item" style="padding:var(--space-md);border-bottom:1px solid var(--grid);">
+            <div class="comment-item" style="padding:var(--space-md);border-bottom:1px solid var(--border);">
               <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
                 <strong>${r.profiles?.display_name || 'Anonymous'}</strong>
                 <span style="color:var(--warning);">${'★'.repeat(r.rating)}</span>

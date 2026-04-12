@@ -88,7 +88,7 @@ export async function renderIdeasPage() {
     </div>
     
     <!-- Idea Modal -->
-    <div id="idea-modal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div id="idea-modal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg-overlay);z-index:9999;align-items:center;justify-content:center;">
       <div class="modal-content card" style="max-width:600px;width:90%;max-height:90vh;overflow-y:auto;position:relative;">
         <button id="close-modal-btn" class="btn btn-ghost" style="position:absolute;top:10px;right:10px;"><i class="fa-solid fa-xmark"></i></button>
         <h2 id="modal-idea-title" style="margin-bottom:var(--space-sm);"></h2>
@@ -102,7 +102,7 @@ export async function renderIdeasPage() {
           By <span id="modal-idea-author"></span> • <span id="modal-idea-date"></span>
         </p>
         <div id="modal-idea-desc" style="white-space:pre-wrap;line-height:1.6;font-size:0.95rem;word-break:break-word;overflow-wrap:anywhere;"></div>
-        <div id="modal-admin-actions" style="display:none;gap:12px;margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--grid);"></div>
+        <div id="modal-admin-actions" style="display:none;gap:12px;margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--border);"></div>
       </div>
     </div>
   `;
@@ -252,7 +252,7 @@ async function loadIdeas(profile) {
           <p style="color:var(--text-secondary);font-size:0.875rem;margin:var(--space-md) 0;line-height:1.5;">
             ${escapeHtml(idea.description || '').substring(0, 200)}${(idea.description?.length || 0) > 200 ? '...' : ''}
           </p>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:var(--space-md);border-top:1px solid var(--grid);">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:var(--space-md);border-top:1px solid var(--border);">
             <span style="color:var(--text-muted);font-size:0.75rem;">
               <i class="fa-solid fa-user"></i> ${idea.profiles?.display_name || 'Anonymous'} •
               ${new Date(idea.created_at).toLocaleDateString()}
