@@ -59,7 +59,7 @@ export async function renderAdminTeachers() {
               <!-- Existing avatar preview -->
               <div id="tf-avatar-preview" style="display:none;margin-bottom:var(--space-md);">
                 <label class="form-label">Current Photo</label>
-                <img id="tf-avatar-img" src="" alt="Teacher" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--grid);" />
+                <img id="tf-avatar-img" src="" alt="Teacher" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border);" />
               </div>
               <div style="display:flex;gap:var(--space-md);">
                 <button type="submit" class="btn btn-primary" id="tf-submit">Add Teacher</button>

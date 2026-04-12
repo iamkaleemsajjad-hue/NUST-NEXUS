@@ -111,7 +111,7 @@ async function loadFeedback(filter) {
       ` : ''}
 
       <!-- Reply Form -->
-      <div class="reply-form" style="border-top:1px solid var(--grid);padding-top:var(--space-md);">
+      <div class="reply-form" style="border-top:1px solid var(--border);padding-top:var(--space-md);">
         <div style="display:flex;gap:var(--space-md);align-items:flex-end;">
           <div style="flex:1;">
             <textarea class="form-textarea reply-textarea" id="reply-${f.id}" placeholder="${f.admin_reply ? 'Update your reply...' : 'Write a reply...'}" style="min-height:60px;">${f.admin_reply || ''}</textarea>

@@ -10,37 +10,29 @@ export async function renderLoginPage() {
   const app = document.getElementById('app');
 
   app.innerHTML = `
-    <div class="login-split">
-      <!-- Left Panel: Branding -->
-      <div class="login-left-panel">
-        <div class="login-left-content">
-          ${getLogoSVG('login-hero-logo', '140', '140')}
-          <h1 class="login-hero-title">NUST <span class="text-glow">NEXUS</span></h1>
-          <p class="login-hero-tagline">Innovating the Future</p>
-          <div class="login-hero-features">
-            <div class="hero-feature">
-              <i class="fa-solid fa-cloud-arrow-up"></i>
-              <span>Share Resources</span>
-            </div>
-            <div class="hero-feature">
-              <i class="fa-solid fa-graduation-cap"></i>
-              <span>Academic Hub</span>
-            </div>
-            <div class="hero-feature">
-              <i class="fa-solid fa-users"></i>
-              <span>Collaborate</span>
-            </div>
-          </div>
+    <div class="login-split-container">
+      <!-- Left Side Logo Display -->
+      <div class="login-left">
+        <div class="login-hero-logo logo-3d-spin">
+          ${getLogoSVG('hero-logo-svg', '180', '180', true)}
         </div>
-        <div class="login-left-bg-glow"></div>
+        <h1 class="login-hero-title">NUST NEXUS</h1>
+        <p class="login-hero-tagline">Innovating the Future</p>
+        <div class="hero-features">
+          <div class="hero-feature"><i class="fa-solid fa-cloud-arrow-up"></i> Share Resources</div>
+          <div class="hero-feature"><i class="fa-solid fa-user-graduate"></i> Academic Hub</div>
+          <div class="hero-feature"><i class="fa-solid fa-users-viewfinder"></i> Collaborate</div>
+        </div>
       </div>
 
-      <!-- Right Panel: Login Form -->
-      <div class="login-right-panel">
-        <div class="login-right-content">
-          <div class="login-form-header">
-            <h2>Welcome Back</h2>
-            <p class="login-form-subtitle">Sign in to your account to continue</p>
+      <!-- Right Side Form -->
+      <div class="login-right">
+        <div class="card login-card" id="login-box" style="box-shadow: none; background: transparent; border: none; padding: 0;">
+          <div class="login-header-wrapper" style="align-items: flex-start;">
+            <div class="login-form-header">
+              <h2 id="form-title">Welcome Back</h2>
+              <p class="login-form-subtitle" id="form-subtitle">Sign in to your account to continue</p>
+            </div>
           </div>
 
           <!-- Tabs -->
@@ -72,8 +64,8 @@ export async function renderLoginPage() {
               <i class="fa-solid fa-right-to-bracket"></i> Sign In
             </button>
 
-            <!-- Feedback Button INSIDE the card -->
-            <div class="login-inline-feedback">
+            <!-- Feedback Button inside the card -->
+            <div class="login-inline-feedback text-center">
               <button type="button" class="btn btn-ghost btn-block" id="public-feedback-btn">
                 <i class="fa-solid fa-comment-dots"></i> Send Feedback
               </button>
@@ -97,8 +89,8 @@ export async function renderLoginPage() {
           </form>
 
           <!-- OTP Verification (hidden) -->
-          <div id="otp-section" style="display:none;">
-            <div class="otp-header">
+          <div id="otp-section" style="display:none;" class="login-form-body">
+            <div class="otp-header text-center">
               <div class="otp-icon"><i class="fa-solid fa-shield-halved"></i></div>
               <h3>Verify Your Email</h3>
               <p style="color:var(--text-secondary);margin-top:8px;">Enter the 8-digit code sent to your email</p>
@@ -154,6 +146,24 @@ export async function renderLoginPage() {
   `;
 
   initLoginEvents();
+
+  // GSAP Entry Animations
+  gsap.fromTo(".login-left", 
+    { opacity: 0, x: -30 },
+    { opacity: 1, x: 0, duration: 0.8, ease: "power3.out" }
+  );
+  gsap.fromTo(".login-right",
+    { opacity: 0, x: 30 },
+    { opacity: 1, x: 0, duration: 0.8, ease: "power3.out" }
+  );
+  gsap.fromTo(".login-hero-logo",
+    { opacity: 0, scale: 0.8 },
+    { opacity: 1, scale: 1, duration: 0.6, delay: 0.2, ease: "back.out(1.5)" }
+  );
+  gsap.fromTo(".hero-feature", 
+    { opacity: 0, y: 15 },
+    { opacity: 1, y: 0, duration: 0.4, stagger: 0.1, delay: 0.4 }
+  );
 }
 
 function initLoginEvents() {

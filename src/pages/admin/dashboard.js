@@ -136,7 +136,7 @@ export async function renderAdminDashboard() {
     }
     
     list.innerHTML = pending.map(item => `
-      <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;margin-bottom:8px;background:rgba(255,255,255,0.02);border:1px solid var(--grid);">
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;margin-bottom:8px;background:rgba(255,255,255,0.02);border:1px solid var(--border);">
         <div>
           <h4 style="margin-bottom:4px;">${item.title}</h4>
           <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">

@@ -140,7 +140,7 @@ async function loadResources(profile, accessibleSemesters) {
               </div>
             </div>
             ${r.description ? `<p style="color:var(--text-secondary);font-size:0.8125rem;margin:var(--space-md) 0;">${escapeHtml(String(r.description)).substring(0, 120)}${String(r.description).length > 120 ? '...' : ''}</p>` : ''}
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);padding-top:var(--space-md);border-top:1px solid var(--grid);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);padding-top:var(--space-md);border-top:1px solid var(--border);">
               <span style="color:var(--text-muted);font-size:0.75rem;">
                 <i class="fa-solid fa-user"></i> ${r.profiles?.display_name || 'Unknown'} •
                 ${new Date(r.created_at).toLocaleDateString()}
