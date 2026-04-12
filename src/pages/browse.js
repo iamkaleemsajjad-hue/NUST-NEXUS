@@ -145,7 +145,7 @@ async function loadResources(profile, accessibleSemesters) {
                 <i class="fa-solid fa-user"></i> ${r.profiles?.display_name || 'Unknown'} •
                 ${new Date(r.created_at).toLocaleDateString()}
               </span>
-              <button class="btn btn-primary btn-sm download-btn" data-id="${r.id}" data-url="${r.file_url}" data-title="${r.title}">
+              <button class="btn btn-primary btn-sm download-btn" data-id="${r.id}" data-url="${r.file_url}" data-title="${escapeHtml(r.title)}" data-type="${r.type}">
                 <i class="fa-solid fa-download"></i> Download
               </button>
             </div>
@@ -163,18 +163,45 @@ async function loadResources(profile, accessibleSemesters) {
       const uploadId = btn.dataset.id;
       const fileUrl = btn.dataset.url;
       const title = btn.dataset.title;
+      const type = btn.dataset.type;
+
+      // Determine cost
+      const { POINTS } = await import('../config.js');
+      const pointCost = type === 'project' ? POINTS.DOWNLOAD_PROJECT_COST : POINTS.DOWNLOAD_COST;
+
+      // Admin doesn't spend points
+      if (profile.role !== 'admin') {
+        if (profile.points < pointCost) {
+          import('../components/toast.js').then(m => m.showToast(`Not enough points! You need ${pointCost} points to download this.`, 'error'));
+          return;
+        }
+
+        const confirmDownload = confirm(`Downloading this ${type === 'project' ? 'project' : 'resource'} will cost ${pointCost} points. Do you want to proceed?`);
+        if (!confirmDownload) return;
+
+        // Deduct points
+        const { error: updateError } = await supabase.from('profiles').update({ points: profile.points - pointCost }).eq('id', profile.id);
+        if (updateError) {
+          import('../components/toast.js').then(m => m.showToast('Failed to deduct points!', 'error'));
+          return;
+        }
+        
+        // Update local profile object
+        profile.points -= pointCost;
+        
+        // Update header UI if points are displayed
+        const pointsBadge = document.querySelector('.header-actions .badge-warning');
+        if (pointsBadge && pointsBadge.innerHTML.includes('fa-star')) {
+          pointsBadge.innerHTML = `<i class="fa-solid fa-star"></i> ${profile.points} Pts`;
+        }
+      }
 
       // Record download
       await supabase.from('downloads').insert({ upload_id: uploadId, user_id: profile.id });
 
-      // Admin doesn't spend points
-      if (profile.role !== 'admin') {
-        // Deduct points from downloader (optional - remove if not desired)
-      }
-
       // Open file
       window.open(fileUrl, '_blank');
-      showToast(`Downloading: ${title}`, 'success');
+      import('../components/toast.js').then(m => m.showToast(`Downloading: ${title}`, 'success'));
     });
   });
 }
