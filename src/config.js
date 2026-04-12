@@ -44,7 +44,7 @@ export const UPLOAD_TYPES = [
   { value: 'assignment', label: 'Assignment', icon: 'fa-file-lines' },
   { value: 'lab_report', label: 'Lab Report', icon: 'fa-flask' },
   { value: 'quiz', label: 'Quiz', icon: 'fa-question-circle' },
-  { value: 'lecture_ppt', label: 'Lecture PPT', icon: 'fa-presentation-screen' },
+  { value: 'lecture_ppt', label: 'Lecture PPT', icon: 'fa-person-chalkboard' },
   { value: 'project', label: 'Semester Project', icon: 'fa-diagram-project' },
   { value: 'other', label: 'Other', icon: 'fa-file' },
 ];
