@@ -1,4 +1,14 @@
-// Supabase Configuration (from environment variables or defaults for GitHub pages deploy)
+/**
+ * NUST NEXUS — Configuration
+ *
+ * SECURITY NOTES (OWASP):
+ * - SUPABASE_ANON_KEY is a PUBLIC key (safe for client-side) — it only grants
+ *   access permitted by Row Level Security (RLS) policies. This is by Supabase design.
+ * - The SERVICE_ROLE key must NEVER appear in client code — it bypasses all RLS.
+ * - Fallback values below are used for GitHub Pages static deploys where env vars
+ *   are baked at build time via Vite. For local dev, use .env (gitignored).
+ * - All data security relies on RLS policies, not key secrecy.
+ */
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '***REMOVED-ANON-KEY***';
 

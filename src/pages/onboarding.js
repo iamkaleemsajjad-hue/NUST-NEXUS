@@ -5,7 +5,7 @@ import { validatePassword, getPasswordStrength } from '../utils/validators.js';
 import { calculateSemester, getSemesterLabel } from '../utils/semester.js';
 import { showToast } from '../components/toast.js';
 import { router } from '../router.js';
-import { sanitizeText } from '../utils/sanitize.js';
+import { sanitizeText, checkRateLimit } from '../utils/sanitize.js';
 import gsap from 'gsap';
 
 export async function renderOnboardingPage() {
@@ -153,6 +153,10 @@ function initOnboarding(user, parsed) {
     const confirmPw = document.getElementById('ob-confirm-password').value;
     const terms = document.getElementById('ob-terms').checked;
     const btn = document.getElementById('ob-submit');
+
+    // ── OWASP: Rate limit onboarding — max 3 per 10 minutes ──
+    const rl = checkRateLimit('onboarding', 3, 600000);
+    if (!rl.allowed) { showToast('Too many attempts. Please wait.', 'error'); return; }
 
     if (!name) { showToast('Please enter your name', 'warning'); return; }
     

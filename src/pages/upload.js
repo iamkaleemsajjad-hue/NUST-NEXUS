@@ -14,6 +14,7 @@ import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, POINTS, UPLOAD_TYPES } from '../config.js';
+import { sanitizeText, validateFields, pickAllowedFields, checkRateLimit } from '../utils/sanitize.js';
 import gsap from 'gsap';
 
 /* ── State ─────────────────────────────────────────────── */
@@ -527,11 +528,32 @@ async function loadProfessors(searchQuery) {
 async function submitUpload(profile) {
   if (isUploading) return;
 
+  // ── OWASP: Rate limiting — max 3 uploads per 10 minutes ──
+  const rl = checkRateLimit('upload_submit', 3, 600000);
+  if (!rl.allowed) {
+    showToast(`Too many uploads. Please wait ${Math.ceil(rl.remainingMs / 1000)}s`, 'error');
+    return;
+  }
+
   const btn = document.getElementById('submit-upload');
-  const title = document.getElementById('upload-title').value.trim();
+  const rawTitle = document.getElementById('upload-title').value;
+  // ── OWASP: Sanitize + length-limit title ──
+  const title = sanitizeText(rawTitle, 200);
 
   if (!title) { showToast('Please enter a title', 'warning'); return; }
   if (!uploadData.file) { showToast('Please select a file', 'warning'); return; }
+
+  // ── OWASP: Schema-based validation of upload data ──
+  const { isValid, errors } = validateFields(
+    { title, type: uploadData.type, courseId: uploadData.courseId, semester: uploadData.semester },
+    {
+      title:    { type: 'string', required: true, maxLength: 200 },
+      type:     { type: 'string', required: true, enum: UPLOAD_TYPES.map(t => t.value) },
+      courseId: { type: 'string', required: true },
+      semester: { type: 'number', required: true, min: 1, max: 12 },
+    }
+  );
+  if (!isValid) { showToast(errors[0], 'error'); return; }
 
   isUploading = true;
   btn.disabled = true;
@@ -597,7 +619,8 @@ async function submitUpload(profile) {
     const status = isProject ? 'approved' : 'pending';
     const pointsAwarded = isProject ? POINTS.UPLOAD_PROJECT : 0;
 
-    const payload = {
+    // ── OWASP: Build payload with only allowed fields (reject extras) ──
+    const rawPayload = {
       user_id: profile.id,
       course_id: uploadData.courseId,
       teacher_id: uploadData.teacherId || null,
@@ -611,6 +634,11 @@ async function submitUpload(profile) {
       points_awarded: pointsAwarded,
       reviewed_at: isProject ? new Date().toISOString() : null,
     };
+    const payload = pickAllowedFields(rawPayload, [
+      'user_id', 'course_id', 'teacher_id', 'semester', 'type',
+      'title', 'file_url', 'file_hash', 'file_size', 'status',
+      'points_awarded', 'reviewed_at'
+    ]);
 
     const uploadRes = await fetch(`${SUPABASE_URL}/rest/v1/uploads`, {
       method: 'POST',
