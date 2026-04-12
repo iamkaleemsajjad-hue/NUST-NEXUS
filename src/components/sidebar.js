@@ -43,7 +43,7 @@ export function renderSidebar(profile) {
       <!-- Sidebar Header -->
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          ${getLogoSVG('sidebar-logo-img', '36', '36')}
+          ${getLogoSVG('sidebar-logo-img', '36', '36', false, currentHash === '/dashboard')}
           <span class="sidebar-brand">NUST NEXUS</span>
         </div>
       </div>
