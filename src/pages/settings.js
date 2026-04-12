@@ -4,7 +4,7 @@ import { renderSidebar, initSidebar } from '../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js';
 import { showToast } from '../components/toast.js';
 import { router } from '../router.js';
-import { sanitizeText } from '../utils/sanitize.js';
+import { sanitizeText, checkRateLimit } from '../utils/sanitize.js';
 import gsap from 'gsap';
 
 export async function renderSettingsPage() {
@@ -87,6 +87,9 @@ export async function renderSettingsPage() {
   // Name update
   document.getElementById('name-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    // ── OWASP: Rate limit name updates — max 10 per hour ──
+    const rl = checkRateLimit('name_update', 10, 3600000);
+    if (!rl.allowed) { showToast('Too many updates. Please wait.', 'error'); return; }
     const name = sanitizeText(document.getElementById('settings-name').value, 120);
     if (!name) { showToast('Name cannot be empty', 'warning'); return; }
 
@@ -104,6 +107,9 @@ export async function renderSettingsPage() {
   // Password update
   document.getElementById('password-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    // ── OWASP: Rate limit password changes — max 5 per hour ──
+    const rl = checkRateLimit('password_change', 5, 3600000);
+    if (!rl.allowed) { showToast('Too many attempts. Please wait.', 'error'); return; }
     const newPw = document.getElementById('settings-new-pw').value;
     const confirmPw = document.getElementById('settings-confirm-pw').value;
 

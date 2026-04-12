@@ -6,7 +6,7 @@ import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
 import { UPLOAD_TYPES } from '../config.js';
-import { escapeHtml, sanitizeText } from '../utils/sanitize.js';
+import { escapeHtml, sanitizeText, checkRateLimit } from '../utils/sanitize.js';
 import { subscribeToTable } from '../utils/realtime.js';
 import gsap from 'gsap';
 
@@ -186,6 +186,13 @@ async function loadResources(profile, accessibleSemesters) {
       const title = btn.dataset.title;
       const type = btn.dataset.type;
 
+      // ── OWASP: Rate limit downloads — max 10 per hour ──
+      const rl = checkRateLimit('download', 10, 3600000);
+      if (!rl.allowed) {
+        showToast(`Too many downloads. Please wait ${Math.ceil(rl.remainingMs / 60000)} min`, 'error');
+        return;
+      }
+
       // Determine cost
       const { POINTS } = await import('../config.js');
       const pointCost = type === 'project' ? POINTS.DOWNLOAD_PROJECT_COST : POINTS.DOWNLOAD_COST;
@@ -200,25 +207,29 @@ async function loadResources(profile, accessibleSemesters) {
         const confirmDownload = confirm(`Downloading this ${type === 'project' ? 'project' : 'resource'} will cost ${pointCost} points. Do you want to proceed?`);
         if (!confirmDownload) return;
 
-        // Deduct points
-        const { error: updateError } = await supabase.from('profiles').update({ points: profile.points - pointCost }).eq('id', profile.id);
-        if (updateError) {
-          import('../components/toast.js').then(m => m.showToast('Failed to deduct points!', 'error'));
+        // ── OWASP: Secure server-side point deduction via RPC (prevents client-side manipulation) ──
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('deduct_download_points', {
+          point_cost: pointCost,
+          upload_id: uploadId
+        });
+
+        if (rpcError || !rpcResult?.success) {
+          import('../components/toast.js').then(m => m.showToast(rpcResult?.error || 'Failed to deduct points!', 'error'));
           return;
         }
         
-        // Update local profile object
-        profile.points -= pointCost;
+        // Update local profile with server-confirmed balance
+        profile.points = rpcResult.points_remaining;
         
         // Update header UI if points are displayed
         const pointsBadge = document.querySelector('.header-actions .badge-warning');
         if (pointsBadge && pointsBadge.innerHTML.includes('fa-star')) {
           pointsBadge.innerHTML = `<i class="fa-solid fa-star"></i> ${profile.points} Pts`;
         }
+      } else {
+        // Admin: just record the download, no points
+        await supabase.from('downloads').insert({ upload_id: uploadId, user_id: profile.id });
       }
-
-      // Record download
-      await supabase.from('downloads').insert({ upload_id: uploadId, user_id: profile.id });
 
       // Open file
       window.open(fileUrl, '_blank');
