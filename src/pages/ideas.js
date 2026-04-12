@@ -257,9 +257,16 @@ async function loadIdeas(profile) {
               <i class="fa-solid fa-user"></i> ${idea.profiles?.display_name || 'Anonymous'} •
               ${new Date(idea.created_at).toLocaleDateString()}
             </span>
-            <button class="btn btn-ghost btn-sm" style="color:var(--primary);">
-              Read More
-            </button>
+            <div style="display:flex; gap: 8px;">
+              ${window.isAdmin ? `
+                <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="event.stopPropagation(); window.deleteIdea('${idea.id}')" title="Delete Idea">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              ` : ''}
+              <button class="btn btn-ghost btn-sm" style="color:var(--primary);">
+                Read More
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -344,16 +351,27 @@ async function loadIdeas(profile) {
 
     // Admin actions
     const adminActionsContainer = document.getElementById('modal-admin-actions');
-    if (window.isAdmin && ideaStatus === 'pending') {
+    if (window.isAdmin) {
       adminActionsContainer.style.display = 'flex';
-      adminActionsContainer.innerHTML = `
-        <button class="btn btn-primary" onclick="window.approveIdea('${idea.id}', '${idea.user_id}')">
-          <i class="fa-solid fa-check"></i> Approve & Award Points
-        </button>
-        <button class="btn btn-danger" onclick="window.rejectIdea('${idea.id}')">
-          <i class="fa-solid fa-xmark"></i> Reject
+      let actionsHtml = '';
+      
+      if (ideaStatus === 'pending') {
+        actionsHtml += `
+          <button class="btn btn-primary" onclick="window.approveIdea('${idea.id}', '${idea.user_id}')">
+            <i class="fa-solid fa-check"></i> Approve & Award Points
+          </button>
+          <button class="btn btn-warning" onclick="window.rejectIdea('${idea.id}')">
+            <i class="fa-solid fa-xmark"></i> Reject
+          </button>
+        `;
+      }
+      
+      actionsHtml += `
+        <button class="btn btn-outline-danger" onclick="window.deleteIdea('${idea.id}')" style="${ideaStatus === 'pending' ? 'margin-left: auto;' : ''}">
+          <i class="fa-solid fa-trash"></i> Delete Idea
         </button>
       `;
+      adminActionsContainer.innerHTML = actionsHtml;
     } else {
       adminActionsContainer.style.display = 'none';
       adminActionsContainer.innerHTML = '';
@@ -365,7 +383,7 @@ async function loadIdeas(profile) {
   };
   
   window.approveIdea = async (id, userId) => {
-    if(!confirm('Approve this idea and award 5 points?')) return;
+    if(!confirm('Approve this idea and award points?')) return;
     document.getElementById('idea-modal').style.display = 'none';
     
     const { POINTS } = await import('../config.js');
@@ -395,6 +413,21 @@ async function loadIdeas(profile) {
     }
     
     showToast('Idea rejected.', 'success');
+    loadIdeas(profile);
+  };
+
+  window.deleteIdea = async (id) => {
+    if(!confirm('Are you absolutely sure you want to permanently delete this idea? This action cannot be undone.')) return;
+    document.getElementById('idea-modal').style.display = 'none';
+    
+    // Attempt deletion
+    const { error } = await supabase.from('project_ideas').delete().eq('id', id);
+    if (error) {
+      showToast('Error deleting idea: ' + error.message, 'error');
+      return;
+    }
+    
+    showToast('Idea has been permanently deleted.', 'success');
     loadIdeas(profile);
   };
 
