@@ -20,6 +20,7 @@ export const VALID_DOMAINS = [
   'sada.nust.edu.pk',
   's3h.nust.edu.pk',
   'nbs.nust.edu.pk',
+  'nbs.edu.pk',
   'asab.nust.edu.pk',
   'sns.nust.edu.pk',
   'nls.nust.edu.pk',
@@ -32,6 +33,7 @@ export const VALID_DOMAINS = [
   'iese.nust.edu.pk',
   'nice.nust.edu.pk',
   'uspcase.nust.edu.pk',
+  'nbc.nust.edu.pk',
   'nust.edu.pk',
   'student.nust.edu.pk',
 ];
