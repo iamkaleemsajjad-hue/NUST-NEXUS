@@ -19,6 +19,10 @@ export const POINTS = {
   DOWNLOAD_COST: 5,
   DOWNLOAD_PROJECT_COST: 50,
   UNIQUE_IDEA: 5,
+  // Q&A System
+  ANSWER_ACCEPTED: 5,          // points for having answer accepted
+  ANSWER_UPVOTE_BONUS: 20,     // free 20 pts when answer gets first upvote (green tag)
+  ASSESSMENT_FULFILL_BONUS: 5, // extra points on top of upload for fulfilling a request
 };
 
 // NUST Email Domains
