@@ -109,15 +109,33 @@ export async function renderAdminBanUsers() {
   }
 
   async function loadBannedUsers() {
-    const { data } = await supabase
+    // Fetch directly from banned_emails to include newcomers
+    const { data: bannedEmails } = await supabase
+      .from('banned_emails')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    // Also fetch associated profiles if they exist
+    const { data: bannedProfiles } = await supabase
       .from('profiles')
-      .select('id, display_name, email, ban_reason, banned_at, is_banned')
-      .eq('is_banned', true)
-      .order('banned_at', { ascending: false });
+      .select('id, display_name, email, is_banned')
+      .eq('is_banned', true);
+
+    const merged = (bannedEmails || []).map(b => {
+      const p = (bannedProfiles || []).find(prof => prof.email === b.email);
+      return {
+        id: p ? p.id : b.id, // profile id or banned_email id
+        email: b.email,
+        display_name: p ? p.display_name : 'Unregistered User',
+        ban_reason: b.reason,
+        banned_at: b.created_at,
+        is_registered: !!p
+      };
+    });
 
     const container = document.getElementById('banned-list');
 
-    if (!data || data.length === 0) {
+    if (!merged || merged.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <i class="fa-solid fa-circle-check" style="color:var(--success);"></i>
@@ -127,7 +145,7 @@ export async function renderAdminBanUsers() {
       return;
     }
 
-    container.innerHTML = data.map(u => `
+    container.innerHTML = merged.map(u => `
       <div class="card" style="margin-bottom:var(--space-sm);padding:var(--space-md) var(--space-lg);" id="ban-row-${u.id}">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--space-md);flex-wrap:wrap;">
           <div>
@@ -136,7 +154,7 @@ export async function renderAdminBanUsers() {
                 ${(u.display_name || u.email || 'U').charAt(0).toUpperCase()}
               </div>
               <div>
-                <div style="font-weight:600;font-size:0.9rem;">${escapeHtml(u.display_name || 'Unknown')}</div>
+                <div style="font-weight:600;font-size:0.9rem;">${escapeHtml(u.display_name)} ${u.is_registered ? '' : '<span style="font-size:0.75rem;color:var(--text-muted);">(Newcomer)</span>'}</div>
                 <div style="font-size:0.8rem;color:var(--text-muted);">${escapeHtml(u.email || 'No email')}</div>
               </div>
               <span style="padding:2px 10px;background:rgba(255,68,68,0.12);border:1px solid rgba(255,68,68,0.3);border-radius:var(--radius-full);color:var(--danger);font-size:0.72rem;font-weight:700;">
@@ -146,22 +164,27 @@ export async function renderAdminBanUsers() {
             ${u.ban_reason ? `<div style="font-size:0.8rem;color:var(--text-muted);"><i class="fa-solid fa-comment"></i> Reason: ${escapeHtml(u.ban_reason)}</div>` : ''}
             ${u.banned_at ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;"><i class="fa-regular fa-clock"></i> Banned: ${new Date(u.banned_at).toLocaleString()}</div>` : ''}
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="window.unbanUser('${u.id}', '${escapeHtml(u.display_name || u.email || '')}')">
+          <button class="btn btn-secondary btn-sm" onclick="window.unbanUser('${u.email}', '${escapeHtml(u.display_name || u.email)}')">
             <i class="fa-solid fa-rotate-left"></i> Unban
           </button>
         </div>
       </div>
     `).join('');
 
-    window.unbanUser = async (userId, name) => {
-      if (!confirm(`Unban ${name}? They will be able to log in again.`)) return;
+    window.unbanUser = async (email, name) => {
+      if (!confirm(`Unban ${name}? They will be able to log in or sign up again.`)) return;
+      
+      // Delete from banned_emails table
+      await supabase.from('banned_emails').delete().eq('email', email);
+      
+      // Update profile if exists
       const { error } = await supabase.from('profiles').update({
         is_banned: false,
         ban_reason: null,
         banned_at: null,
         banned_by: null
-      }).eq('id', userId);
-      if (error) { showToast('Error unbanning user.', 'error'); return; }
+      }).eq('email', email);
+      
       showToast(`${name} has been unbanned.`, 'success');
       await loadStats();
       await loadBannedUsers();
@@ -185,49 +208,50 @@ export async function renderAdminBanUsers() {
       .from('profiles')
       .select('id, display_name, email, is_banned')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
-    if (!targetUser) {
-      showToast('No user found with that email address.', 'error');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-ban"></i> Ban User';
-      return;
-    }
-
-    if (targetUser.is_banned) {
+    if (targetUser && targetUser.is_banned) {
       showToast('This user is already banned.', 'warning');
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-ban"></i> Ban User';
       return;
     }
 
-    if (targetUser.id === profile.id) {
+    if (targetUser && targetUser.id === profile.id) {
       showToast('You cannot ban yourself.', 'error');
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-ban"></i> Ban User';
       return;
     }
 
-    // Also add to banned_emails table to block signup
-    await supabase.from('banned_emails').upsert({
+    // Insert into banned_emails table to block signup / login unequivocally
+    const { error: banEmailErr } = await supabase.from('banned_emails').upsert({
       email,
       reason: reason || null,
       banned_by: profile.id,
     }, { onConflict: 'email' });
 
-    const { error } = await supabase.from('profiles').update({
-      is_banned: true,
-      ban_reason: reason || null,
-      banned_at: new Date().toISOString(),
-      banned_by: profile.id,
-    }).eq('id', targetUser.id);
+    if (banEmailErr) {
+       showToast('Error registering ban: ' + banEmailErr.message, 'error');
+       btn.disabled = false;
+       btn.innerHTML = '<i class="fa-solid fa-ban"></i> Ban User';
+       return;
+    }
+
+    // Update profile if existed
+    if (targetUser) {
+      await supabase.from('profiles').update({
+        is_banned: true,
+        ban_reason: reason || null,
+        banned_at: new Date().toISOString(),
+        banned_by: profile.id,
+      }).eq('id', targetUser.id);
+    }
 
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-ban"></i> Ban User';
 
-    if (error) { showToast('Error banning user: ' + error.message, 'error'); return; }
-
-    showToast(`${targetUser.display_name || email} has been banned.`, 'success');
+    showToast(`${targetUser?.display_name || email} has been permanently banned.`, 'success');
     document.getElementById('ban-form').reset();
     await loadStats();
     await loadBannedUsers();

@@ -39,6 +39,8 @@ export function renderSidebar(profile) {
     { href: '/admin/notifications', icon: 'fa-bell', label: 'Notifications' },
     { href: '/admin/login-history', icon: 'fa-clock-rotate-left', label: 'Login History' },
     { href: '/admin/assessment-requests', icon: 'fa-file-circle-question', label: 'Assessment Requests' },
+    { href: '/admin/user-analysis', icon: 'fa-magnifying-glass-chart', label: 'User Analysis' },
+    { href: '/admin/delete-requests', icon: 'fa-user-xmark', label: 'Deletion Requests' },
     { href: '/admin/ban-users', icon: 'fa-ban', label: 'Ban Users' },
   ];
 

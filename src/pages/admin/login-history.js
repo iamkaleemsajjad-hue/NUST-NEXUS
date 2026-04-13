@@ -269,7 +269,7 @@ function renderUserTable(users) {
                     ${avatarHtml}
                     <div>
                       <div style="font-weight:600;">${escapeHtml(u.display_name || 'Unknown')}</div>
-                      <div style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(u.email || '')}</div>
+                      <div style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(u.email || '')} &bull; ID: ${u.id}</div>
                     </div>
                   </div>
                 </td>

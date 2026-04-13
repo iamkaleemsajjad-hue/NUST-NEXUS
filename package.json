@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
+    "animejs": "^3.2.2",
     "gsap": "^3.14.2"
   }
 }

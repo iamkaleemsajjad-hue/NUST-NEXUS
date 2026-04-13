@@ -1,4 +1,5 @@
 import { getCurrentUser, getUserProfile, updateProfile, updatePassword } from '../utils/auth.js';
+import { supabase } from '../utils/supabase.js';
 import { validatePassword, getPasswordStrength } from '../utils/validators.js';
 import { renderSidebar, initSidebar } from '../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js';
@@ -71,6 +72,29 @@ export async function renderSettingsPage() {
               <div><span class="form-label">Joined</span><p>${new Date(profile.created_at).toLocaleDateString()}</p></div>
             </div>
           </div>
+
+          <!-- Account Deletion -->
+          <div class="card" style="margin-top:var(--space-xl); border: 1px solid var(--danger); background: rgba(255,0,0,0.02);" id="deletion-card">
+            <h3 style="margin-bottom:var(--space-md); color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Danger Zone</h3>
+            ${profile.deletion_requested_at ? `
+              <div class="alert alert-warning" style="margin-bottom: var(--space-md);">
+                <strong>Deletion Requested</strong><br/>
+                You requested account deletion on ${new Date(profile.deletion_requested_at).toLocaleString()}.
+                Your profile, uploads, and data will be permanently purged after 14 days.
+              </div>
+              <button class="btn btn-secondary" id="btn-cancel-deletion">
+                <i class="fa-solid fa-rotate-left"></i> Cancel Deletion Request
+              </button>
+            ` : `
+              <p style="color:var(--text-secondary); margin-bottom:var(--space-lg);">
+                Permanently delete your NUST Nexus account and remove all your data (questions, answers, uploads).
+                <strong>Once requested, you enter a 14-day grace period. After 14 days, your data is irrevocably deleted.</strong>
+              </p>
+              <button class="btn btn-danger" id="btn-request-deletion">
+                <i class="fa-solid fa-trash"></i> Request Permanent Deletion
+              </button>
+            `}
+          </div>
         </div>
       </div>
     </div>
@@ -123,6 +147,33 @@ export async function renderSettingsPage() {
       showToast('Password updated!', 'success');
       document.getElementById('settings-new-pw').value = '';
       document.getElementById('settings-confirm-pw').value = '';
+    }
+  });
+
+  // Account Deletion Logic
+  document.getElementById('btn-request-deletion')?.addEventListener('click', async () => {
+    if (!confirm('Are you absolutely sure you want to delete your account? This will permanently erase your data after 14 days.')) return;
+    const { error } = await supabase.from('profiles').update({
+      deletion_requested_at: new Date().toISOString()
+    }).eq('id', user.id);
+    if (error) {
+      showToast('Failed to request deletion.', 'error');
+    } else {
+      showToast('Account deletion requested.', 'success');
+      renderSettingsPage(); // refresh
+    }
+  });
+
+  document.getElementById('btn-cancel-deletion')?.addEventListener('click', async () => {
+    if (!confirm('Cancel your account deletion request? Your data will be kept safe.')) return;
+    const { error } = await supabase.from('profiles').update({
+      deletion_requested_at: null
+    }).eq('id', user.id);
+    if (error) {
+      showToast('Failed to cancel deletion.', 'error');
+    } else {
+      showToast('Account deletion cancelled.', 'success');
+      renderSettingsPage(); // refresh
     }
   });
 }
