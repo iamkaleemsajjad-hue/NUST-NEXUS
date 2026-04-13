@@ -22,6 +22,8 @@ import { renderAdminFeedback } from './pages/admin/feedback.js';
 import { renderAdminRatings } from './pages/admin/ratings.js';
 import { renderLoginHistoryPage } from './pages/admin/login-history.js';
 import { renderAdminAssessmentRequests } from './pages/admin/assessment-requests.js';
+import { renderAdminUserAnalysis } from './pages/admin/user-analysis.js';
+import { renderAdminDeleteRequests } from './pages/admin/delete-requests.js';
 import { renderAdminBanUsers } from './pages/admin/ban-users.js';
 import { unsubscribeAll } from './utils/realtime.js';
 
@@ -49,6 +51,8 @@ router.addRoute('/admin/feedback', renderAdminFeedback);
 router.addRoute('/admin/ratings', renderAdminRatings);
 router.addRoute('/admin/login-history', renderLoginHistoryPage);
 router.addRoute('/admin/assessment-requests', renderAdminAssessmentRequests);
+router.addRoute('/admin/user-analysis', renderAdminUserAnalysis);
+router.addRoute('/admin/delete-requests', renderAdminDeleteRequests);
 router.addRoute('/admin/ban-users', renderAdminBanUsers);
 
 

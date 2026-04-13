@@ -266,30 +266,28 @@ async function loadQuestions() {
   renderQuestionList();
 }
 
-// Auto-accept: after 14 days, answer with most upvotes is marked accepted
+// Auto-award Top Answer bonus: after 14 days, answer with most upvotes gets +20 points
 async function autoAcceptOldQuestions(questions) {
   const cutoff = Date.now() - AUTO_ACCEPT_DAYS * 24 * 3600000;
   for (const q of questions) {
-    if (q.accepted_answer_id) continue; // already has one
     if (new Date(q.created_at).getTime() > cutoff) continue; // not old enough
 
-    // Find answer with most upvotes
-    const answers = (q.question_answers || []).filter(a => !a.is_deleted);
+    // Find answer with most upvotes that hasn't received the bonus yet
+    const answers = (q.question_answers || []).filter(a => !a.is_deleted && !a.upvote_bonus_given);
     if (!answers.length) continue;
 
     const top = answers.reduce((best, a) => (a.upvotes_count || 0) > (best.upvotes_count || 0) ? a : best, answers[0]);
     if (!top || (top.upvotes_count || 0) === 0) continue;
 
-    // Mark it accepted
-    await supabase.from('question_answers').update({ is_accepted: true }).eq('id', top.id);
-    await supabase.from('questions').update({ accepted_answer_id: top.id }).eq('id', q.id);
+    // Mark as having received the bonus
+    await supabase.from('question_answers').update({ upvote_bonus_given: true }).eq('id', top.id);
 
-    // Award points to answer author
+    // Award bonus points to answer author
     const { data: ansRow } = await supabase.from('question_answers').select('user_id').eq('id', top.id).single();
     if (ansRow) {
       const { data: ap } = await supabase.from('profiles').select('points').eq('id', ansRow.user_id).single();
       if (ap) {
-        await supabase.from('profiles').update({ points: (ap.points || 0) + POINTS.ANSWER_ACCEPTED }).eq('id', ansRow.user_id);
+        await supabase.from('profiles').update({ points: (ap.points || 0) + POINTS.ANSWER_UPVOTE_BONUS }).eq('id', ansRow.user_id);
       }
     }
   }
@@ -446,8 +444,17 @@ async function openQuestion(questionId) {
     .eq('question_id', questionId)
     .eq('is_deleted', false)
     .order('is_accepted', { ascending: false })
-    .order('upvotes_count', { ascending: false })
     .order('created_at', { ascending: true });
+
+  if (answers) {
+    answers.sort((a, b) => {
+      if (a.is_accepted !== b.is_accepted) return a.is_accepted ? -1 : 1;
+      const votesA = (a.answer_upvotes || []).length;
+      const votesB = (b.answer_upvotes || []).length;
+      if (votesA !== votesB) return votesB - votesA;
+      return new Date(a.created_at) - new Date(b.created_at);
+    });
+  }
 
   const myUpvotes = (q.question_upvotes || []);
   const iQVoted = myUpvotes.some(u => u.user_id === _profile.id);
@@ -467,7 +474,7 @@ async function openQuestion(questionId) {
           <h3 style="font-size:1.05rem;margin-bottom:8px;">${escapeHtml(q.title)}</h3>
           ${(q.tags||[]).length ? `<div class="q-tags">${q.tags.map(t=>`<span class="q-tag-badge">${t}</span>`).join('')}</div>` : ''}
           <div class="q-meta" style="margin-top:8px;">
-            <span class="q-meta-item"><i class="fa-solid fa-user"></i> ${escapeHtml(q.profiles?.display_name || 'Unknown')}</span>
+            <span class="q-meta-item"><i class="fa-solid fa-user"></i> ${escapeHtml(q.profiles?.display_name || 'Unknown')} ${_isAdmin ? `<span style="font-size:0.75rem;opacity:0.8;">(ID: ${q.user_id})</span>` : ''}</span>
             <span class="q-meta-item"><i class="fa-regular fa-clock"></i> ${timeAgo(q.created_at)}</span>
           </div>
         </div>
@@ -502,6 +509,7 @@ async function openQuestion(questionId) {
 
   // Attach global handlers
   window.toggleAnswerUpvote = (answerId) => handleAnswerUpvote(answerId, questionId);
+  window.acceptAnswer = (answerId) => handleAcceptAnswer(answerId, questionId);
   window.toggleReplies = toggleReplies;
   window.submitReply = (answerId) => handleSubmitReply(answerId);
   window.adminDeleteAnswer = (answerId) => handleAdminDeleteAnswer(answerId);
@@ -514,6 +522,8 @@ function renderAnswerBlock(a, q) {
   const replies = (a.answer_replies || []).filter(r => !r.is_deleted);
   const isAccepted = a.is_accepted;
   const isTopAnswer = a.upvote_bonus_given;
+  const isQuestionOwner = q.user_id === _profile.id;
+  const questionHasAccepted = q.accepted_answer_id != null;
 
   return `
     <div class="answer-block ${isAccepted ? 'accepted-answer' : ''}" id="ans-${a.id}">
@@ -526,6 +536,7 @@ function renderAnswerBlock(a, q) {
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
             <strong style="font-size:0.875rem;">${escapeHtml(a.profiles?.display_name || 'Unknown')}</strong>
+            ${_isAdmin ? `<span style="font-size:0.75rem;color:var(--text-muted);">(ID: ${a.user_id})</span>` : ''}
             <span style="color:var(--text-muted);font-size:0.8rem;">${timeAgo(a.created_at)}</span>
             ${isAccepted ? `<span class="accepted-badge"><i class="fa-solid fa-check"></i> Accepted</span>` : ''}
             ${isTopAnswer ? `<span class="top-answer-badge"><i class="fa-solid fa-star"></i> Top Answer • +20pts</span>` : ''}
@@ -537,6 +548,10 @@ function renderAnswerBlock(a, q) {
         <button class="btn btn-ghost btn-sm" onclick="window.toggleReplies('${a.id}')">
           <i class="fa-solid fa-reply"></i> Reply (${replies.length})
         </button>
+        ${!questionHasAccepted && isQuestionOwner && a.user_id !== _profile.id ? `
+          <button class="btn btn-ghost btn-sm" style="color:var(--success);" onclick="window.acceptAnswer('${a.id}')">
+            <i class="fa-solid fa-check"></i> Accept Answer (+10pts)
+          </button>` : ''}
         ${_isAdmin ? `
           <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="window.adminDeleteAnswer('${a.id}')">
             <i class="fa-solid fa-trash"></i> Delete
@@ -694,6 +709,30 @@ async function handlePostAnswer(questionId) {
   }, 300);
 }
 
+async function handleAcceptAnswer(answerId, questionId) {
+  if (!confirm('Accept this answer? You can only accept one answer per question. They will receive 10 points.')) return;
+  
+  // Mark answer as accepted
+  const { error } = await supabase.from('question_answers').update({ is_accepted: true }).eq('id', answerId);
+  if (error) { showToast('Error accepting answer.', 'error'); return; }
+
+  // Update question
+  await supabase.from('questions').update({ accepted_answer_id: answerId }).eq('id', questionId);
+
+  // Award 10 points
+  const { data: ansRow } = await supabase.from('question_answers').select('user_id').eq('id', answerId).single();
+  if (ansRow) {
+    const { data: ap } = await supabase.from('profiles').select('points').eq('id', ansRow.user_id).single();
+    if (ap) {
+      await supabase.from('profiles').update({ points: (ap.points || 0) + POINTS.ANSWER_ACCEPTED }).eq('id', ansRow.user_id);
+    }
+  }
+
+  showToast('Answer logic accepted and points awarded!', 'success');
+  await loadQuestions();
+  await openQuestion(questionId);
+}
+
 async function toggleQuestionUpvote(questionId) {
   const q = _questions.find(x => x.id === questionId);
   if (!q) return;
@@ -750,25 +789,12 @@ async function handleAnswerUpvote(answerId, questionId) {
     if (countEl) countEl.textContent = newCount;
 
     const { data: ansRow } = await supabase.from('question_answers')
-      .select('upvotes_count, upvote_bonus_given, user_id')
+      .select('upvotes_count, user_id')
       .eq('id', answerId).single();
 
     if (ansRow) {
       const updatedCount = (ansRow.upvotes_count || 0) + 1;
       await supabase.from('question_answers').update({ upvotes_count: updatedCount }).eq('id', answerId);
-
-      // Award 20 bonus points on FIRST upvote (green tag) — automatic
-      if (!ansRow.upvote_bonus_given) {
-        const { data: ap } = await supabase.from('profiles').select('points').eq('id', ansRow.user_id).single();
-        if (ap) {
-          await supabase.from('profiles').update({
-            points: (ap.points || 0) + POINTS.ANSWER_UPVOTE_BONUS
-          }).eq('id', ansRow.user_id);
-          await supabase.from('question_answers').update({ upvote_bonus_given: true }).eq('id', answerId);
-          await loadQuestions();
-          openQuestion(questionId);
-        }
-      }
     }
   }
 }
