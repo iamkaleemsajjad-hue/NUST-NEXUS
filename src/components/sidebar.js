@@ -15,6 +15,8 @@ export function renderSidebar(profile) {
     { href: '/upload', icon: 'fa-cloud-arrow-up', label: 'Upload' },
     { href: '/teachers', icon: 'fa-chalkboard-user', label: 'Teachers' },
     { href: '/ideas', icon: 'fa-lightbulb', label: 'Project Ideas' },
+    { href: '/ask-questions', icon: 'fa-circle-question', label: 'Ask Questions' },
+    { href: '/request-assessment', icon: 'fa-file-circle-plus', label: 'Request Assessment' },
     { href: '/feedback', icon: 'fa-comment-dots', label: 'Feedback' },
     { href: '/settings', icon: 'fa-gear', label: 'Settings' },
   ];
@@ -24,6 +26,8 @@ export function renderSidebar(profile) {
     { href: '/browse', icon: 'fa-compass', label: 'Browse Resources' },
     { href: '/teachers', icon: 'fa-chalkboard-user', label: 'Teachers' },
     { href: '/ideas', icon: 'fa-lightbulb', label: 'Project Ideas' },
+    { href: '/ask-questions', icon: 'fa-circle-question', label: 'Ask Questions' },
+    { href: '/request-assessment', icon: 'fa-file-circle-plus', label: 'Request Assessment' },
     { href: '/settings', icon: 'fa-gear', label: 'Settings' },
   ];
 
@@ -34,6 +38,8 @@ export function renderSidebar(profile) {
     { href: '/admin/ratings', icon: 'fa-star', label: 'Teacher Ratings' },
     { href: '/admin/notifications', icon: 'fa-bell', label: 'Notifications' },
     { href: '/admin/login-history', icon: 'fa-clock-rotate-left', label: 'Login History' },
+    { href: '/admin/assessment-requests', icon: 'fa-file-circle-question', label: 'Assessment Requests' },
+    { href: '/admin/ban-users', icon: 'fa-ban', label: 'Ban Users' },
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;

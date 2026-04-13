@@ -3,6 +3,7 @@ import { renderSidebar, initSidebar } from '../../components/sidebar.js';
 import { renderHeader, initHeader, setBreadcrumb } from '../../components/header.js';
 import { showToast } from '../../components/toast.js';
 import { supabase } from '../../utils/supabase.js';
+import { escapeHtml } from '../../utils/sanitize.js';
 import { router } from '../../router.js';
 import { subscribeToTable } from '../../utils/realtime.js';
 import gsap from 'gsap';
@@ -111,8 +112,8 @@ export async function renderAdminDashboard() {
           <thead><tr><th>Name</th><th>Email</th><th>School</th><th>Degree</th><th>Points</th><th>Joined</th></tr></thead>
           <tbody>
             ${users.map(u => `<tr>
-              <td>${u.display_name}</td><td>${u.email}</td><td>${u.school || '—'}</td>
-              <td>${u.degree || '—'}</td><td><span class="badge badge-primary">${u.points}</span></td>
+              <td>${escapeHtml(u.display_name)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.school || '—')}</td>
+              <td>${escapeHtml(u.degree || '—')}</td><td><span class="badge badge-primary">${u.points}</span></td>
               <td>${new Date(u.created_at).toLocaleDateString()}</td>
             </tr>`).join('')}
           </tbody>
@@ -138,10 +139,12 @@ export async function renderAdminDashboard() {
     
     list.innerHTML = pending.map(item => `
       <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;margin-bottom:8px;background:rgba(255,255,255,0.02);border:1px solid var(--border);">
-        <div>
-          <h4 style="margin-bottom:4px;">${item.title}</h4>
-          <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">
-            Type: ${item.type} | By: ${item.profiles?.display_name || 'Unknown'} | Date: ${new Date(item.created_at).toLocaleDateString()}
+        <div style="flex:1;min-width:0;padding-right:12px;">
+          <h4 style="margin-bottom:4px;">${escapeHtml(item.title)}</h4>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;line-height:1.5;">
+            <strong>Type:</strong> ${item.type} | <strong>By:</strong> ${escapeHtml(item.profiles?.display_name || 'Unknown')} <br>
+            <strong>Student ID:</strong> <code style="font-size:0.75rem;background:var(--bg-deep);padding:2px 4px;border-radius:4px;user-select:all;">${item.user_id}</code><br>
+            <strong>Date:</strong> ${new Date(item.created_at).toLocaleDateString()}
           </p>
         </div>
         <div style="display:flex;gap:8px;">

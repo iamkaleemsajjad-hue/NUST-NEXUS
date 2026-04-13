@@ -31,6 +31,12 @@ export async function getUserProfile(userId) {
  * Sign up with email (sends OTP)
  */
 export async function signUpWithEmail(email) {
+  // Pre-flight check: Prevent sending verification email if banned
+  const { data: banned } = await supabase.from('banned_emails').select('email').eq('email', email).maybeSingle();
+  if (banned) {
+    return { error: { message: 'This email is banned from NUST Nexus. Registration is blocked.' } };
+  }
+
   const { data, error } = await supabase.auth.signInWithOtp({
     email,
     options: {

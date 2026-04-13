@@ -12,6 +12,8 @@ import { renderTeachersPage } from './pages/teachers.js';
 import { renderIdeasPage } from './pages/ideas.js';
 import { renderSettingsPage } from './pages/settings.js';
 import { renderFeedbackPage } from './pages/feedback.js';
+import { renderAskQuestionsPage } from './pages/ask-questions.js';
+import { renderRequestAssessmentPage } from './pages/request-assessment.js';
 import { renderAdminDashboard } from './pages/admin/dashboard.js';
 import { renderAdminTeachers } from './pages/admin/teachers.js';
 import { renderAdminCourses } from './pages/admin/courses.js';
@@ -19,7 +21,10 @@ import { renderAdminNotifications } from './pages/admin/notifications.js';
 import { renderAdminFeedback } from './pages/admin/feedback.js';
 import { renderAdminRatings } from './pages/admin/ratings.js';
 import { renderLoginHistoryPage } from './pages/admin/login-history.js';
+import { renderAdminAssessmentRequests } from './pages/admin/assessment-requests.js';
+import { renderAdminBanUsers } from './pages/admin/ban-users.js';
 import { unsubscribeAll } from './utils/realtime.js';
+
 
 // Public routes (no auth required)
 const publicRoutes = ['/login'];
@@ -32,6 +37,8 @@ router.addRoute('/upload', renderUploadPage);
 router.addRoute('/browse', renderBrowsePage);
 router.addRoute('/teachers', renderTeachersPage);
 router.addRoute('/ideas', renderIdeasPage);
+router.addRoute('/ask-questions', renderAskQuestionsPage);
+router.addRoute('/request-assessment', renderRequestAssessmentPage);
 router.addRoute('/settings', renderSettingsPage);
 router.addRoute('/feedback', renderFeedbackPage);
 router.addRoute('/admin/dashboard', renderAdminDashboard);
@@ -41,6 +48,9 @@ router.addRoute('/admin/notifications', renderAdminNotifications);
 router.addRoute('/admin/feedback', renderAdminFeedback);
 router.addRoute('/admin/ratings', renderAdminRatings);
 router.addRoute('/admin/login-history', renderLoginHistoryPage);
+router.addRoute('/admin/assessment-requests', renderAdminAssessmentRequests);
+router.addRoute('/admin/ban-users', renderAdminBanUsers);
+
 
 // Auth guard + cleanup + instant skeleton
 router.beforeEach = async (to) => {
@@ -140,13 +150,37 @@ async function init() {
       router.navigate('/login');
     } else if (event === 'SIGNED_IN') {
       const user = session?.user;
-      // Persist login row for dashboard "Login History" (logout time filled on signOut)
+      // Check if user is banned — force sign out immediately
       if (user) {
-        try {
-          await recordLogin(user.id);
-        } catch (e) {
-          console.warn('recordLogin:', e);
+        const { data: banCheck } = await supabase
+          .from('profiles')
+          .select('is_banned, ban_reason')
+          .eq('id', user.id)
+          .single();
+        if (banCheck?.is_banned) {
+          await supabase.auth.signOut();
+          // Show ban message on login page
+          const app = document.getElementById('app');
+          if (app) {
+            app.innerHTML = `
+              <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg-deep);">
+                <div style="max-width:420px;text-align:center;padding:48px 32px;background:var(--bg-card);border:1px solid rgba(255,68,68,0.3);border-radius:16px;">
+                  <div style="font-size:3rem;margin-bottom:16px;">🚫</div>
+                  <h2 style="color:var(--danger);margin-bottom:12px;">Account Banned</h2>
+                  <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;margin-bottom:24px;">
+                    Your account has been permanently banned from NUST Nexus.
+                    ${banCheck.ban_reason ? `<br><br><strong>Reason:</strong> ${banCheck.ban_reason}` : ''}
+                  </p>
+                  <p style="color:var(--text-muted);font-size:0.8rem;">If you believe this is an error, contact the administrator.</p>
+                </div>
+              </div>`;
+          }
+          return;
         }
+      }
+      // Persist login row
+      if (user) {
+        try { await recordLogin(user.id); } catch (e) { console.warn('recordLogin:', e); }
       }
       if (user && window.location.hash === '#/login') {
         const { data: profile } = await supabase
