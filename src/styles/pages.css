@@ -2047,13 +2047,20 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 10px;
-  background: rgba(0, 255, 136, 0.12);
-  border: 1px solid rgba(0, 255, 136, 0.3);
+  padding: 3px 12px;
+  background: rgba(0, 255, 136, 0.15);
+  border: 1px solid rgba(0, 255, 136, 0.4);
   border-radius: var(--radius-full);
-  color: var(--success);
+  color: #00ff88;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  animation: acceptedPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes acceptedPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(0, 255, 136, 0.15); }
+  50% { box-shadow: 0 0 14px rgba(0, 255, 136, 0.35); }
 }
 
 .top-answer-badge {
@@ -2085,8 +2092,28 @@
 }
 
 .answer-block.accepted-answer {
-  border-left-color: var(--success);
-  background: rgba(0,255,136,0.03);
+  border-left: 4px solid var(--success);
+  border-color: rgba(0, 255, 136, 0.35);
+  background: rgba(0, 255, 136, 0.06);
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.08), inset 0 0 0 1px rgba(0, 255, 136, 0.12);
+  position: relative;
+}
+
+.answer-block.accepted-answer::before {
+  content: '✓ Accepted Answer';
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 200, 100, 0.25));
+  color: #00ff88;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  border-radius: 0 var(--radius-lg) 0 var(--radius-md);
+  border-bottom: 1px solid rgba(0, 255, 136, 0.25);
+  border-left: 1px solid rgba(0, 255, 136, 0.25);
 }
 
 .answer-body {
@@ -2328,3 +2355,54 @@
   margin-top: var(--space-xl);
 }
 
+
+/* Q&A Accepted Answer Styling */
+.answer-block.accepted-answer {
+  border: 1px solid var(--success) !important;
+  background: rgba(76, 175, 80, 0.05) !important;
+  box-shadow: 0 0 20px rgba(76, 175, 80, 0.1);
+  position: relative;
+  overflow: hidden;
+  animation: accepted-glow 3s infinite alternate;
+}
+
+.answer-block.accepted-answer::after {
+  content: '? Accepted Answer';
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--success);
+  color: white;
+  padding: 4px 12px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border-bottom-left-radius: var(--radius-md);
+  box-shadow: -2px 2px 10px rgba(0,0,0,0.3);
+  z-index: 10;
+}
+
+.accepted-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: var(--radius-full);
+  color: var(--success);
+  font-size: 0.7rem;
+  font-weight: 700;
+  animation: badge-pulse 2s infinite;
+}
+
+@keyframes accepted-glow {
+  from { box-shadow: 0 0 10px rgba(76, 175, 80, 0.05); }
+  to { box-shadow: 0 0 25px rgba(76, 175, 80, 0.15); }
+}
+
+@keyframes badge-pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(76, 175, 80, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}

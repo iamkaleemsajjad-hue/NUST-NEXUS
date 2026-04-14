@@ -247,6 +247,19 @@ function initInactivityTracker() {
   resetTimer();
 }
 
+// ── Tab Presence Logic ──
+// We no longer trigger a full re-render on visibilitychange to preserve user input (forms).
+// Instead, we just refresh the auth state if needed.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible') {
+    // Check if session is still valid — this ensures we don't work with a stale session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session && window.location.hash !== '#/login') {
+      import('./router.js').then(({ router }) => router.navigate('/login'));
+    }
+  }
+});
+
 // Start
 init();
 

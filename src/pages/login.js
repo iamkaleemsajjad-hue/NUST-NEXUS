@@ -271,6 +271,19 @@ function initLoginEvents() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Creating account...';
 
+    // Pre-flight ban check via RPC (bypasses RLS issues for anon callers)
+    const { data: isBanned, error: rpcErr } = await supabase.rpc('is_email_banned', { p_email: email });
+
+    if (rpcErr) {
+      console.error('Ban check error:', rpcErr);
+      // Fallback: don't block if RPC fails due to connectivity, but log it
+    } else if (isBanned) {
+      showToast('This email has been banned from NUST Nexus. Registration is blocked.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create Account';
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email: email,
       options: {
@@ -333,6 +346,14 @@ function initLoginEvents() {
 
   // Resend OTP
   document.getElementById('resend-otp-btn')?.addEventListener('click', async () => {
+    // Check ban status via RPC before resending OTP
+    const { data: isBannedResend } = await supabase.rpc('is_email_banned', { p_email: pendingEmail });
+
+    if (isBannedResend) {
+      showToast('This email has been banned from NUST Nexus.', 'error');
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email: pendingEmail,
       options: { 
