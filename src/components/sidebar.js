@@ -96,6 +96,8 @@ export function renderSidebar(profile) {
 /**
  * Initialize sidebar: toggle, logic, sliding marker
  */
+let _sidebarHashHandler = null;
+
 export function initSidebar() {
   const sidebar = document.getElementById('sidebar');
   const mainContent = document.querySelector('.main-content');
@@ -103,11 +105,17 @@ export function initSidebar() {
   // Initialize sliding indicator
   initSlidingMarker();
 
+  // Remove old listener to prevent stacking on re-render
+  if (_sidebarHashHandler) {
+    window.removeEventListener('hashchange', _sidebarHashHandler);
+  }
+
   // Listen for hash changes to update indicator
-  window.addEventListener('hashchange', () => {
+  _sidebarHashHandler = () => {
     updateActiveLink();
     moveSlidingMarker();
-  });
+  };
+  window.addEventListener('hashchange', _sidebarHashHandler);
 }
 
 /**

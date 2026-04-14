@@ -71,8 +71,15 @@ export function renderHeader(profile) {
 /**
  * Initialize header events and live clock
  */
+let _clockInterval = null;
+
 export function initHeader(profile) {
-  // Live clock
+  // Live clock — clear previous interval to prevent stacking
+  if (_clockInterval) {
+    clearInterval(_clockInterval);
+    _clockInterval = null;
+  }
+
   function updateClock() {
     const now = new Date();
     const clock = document.getElementById('header-clock');
@@ -85,7 +92,7 @@ export function initHeader(profile) {
     }
   }
   updateClock();
-  setInterval(updateClock, 30000);
+  _clockInterval = setInterval(updateClock, 30000);
 
   // Profile dropdown toggle
   const profileBtn = document.getElementById('header-profile-btn');

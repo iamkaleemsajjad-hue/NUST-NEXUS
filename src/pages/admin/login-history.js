@@ -137,17 +137,39 @@ async function loadLoginHistoryData() {
     stat.logins.push(entry.login_at);
   }
 
+  // Build a set of known profile IDs for quick lookup
+  const profileIds = new Set(profiles.map(p => p.id));
+
   // Merge profiles with stats
   let users = profiles.map(p => {
     const stat = userStats.get(p.id) || { count: 0, lastLogin: null, logins: [] };
     return { ...p, loginCount: stat.count, lastLogin: stat.lastLogin, logins: stat.logins };
   });
 
-  // Filter
+  // Include users who have login history but no profile (deleted accounts)
+  for (const [userId, stat] of userStats.entries()) {
+    if (!profileIds.has(userId)) {
+      users.push({
+        id: userId,
+        display_name: '[Deleted Account]',
+        email: 'N/A',
+        avatar_url: null,
+        role: 'unknown',
+        created_at: null,
+        loginCount: stat.count,
+        lastLogin: stat.lastLogin,
+        logins: stat.logins,
+        _deleted: true
+      });
+    }
+  }
+
+  // Filter — also search by user ID
   if (searchQuery) {
     users = users.filter(u =>
       (u.display_name || '').toLowerCase().includes(searchQuery) ||
-      (u.email || '').toLowerCase().includes(searchQuery)
+      (u.email || '').toLowerCase().includes(searchQuery) ||
+      (u.id || '').toLowerCase().includes(searchQuery)
     );
   }
 
@@ -161,7 +183,7 @@ async function loadLoginHistoryData() {
   }
 
   // Summary stats
-  const totalUsers = profiles.length;
+  const totalUsers = users.length;
   const totalLogins = history.length;
   const today = new Date().toDateString();
   const todayLogins = history.filter(h => new Date(h.login_at).toDateString() === today).length;
@@ -247,6 +269,7 @@ function renderUserTable(users) {
         <thead>
           <tr>
             <th>User</th>
+            <th>User ID</th>
             <th>Role</th>
             <th>Total Logins</th>
             <th>Last Login</th>
@@ -261,20 +284,27 @@ function renderUserTable(users) {
             const avatarHtml = u.avatar_url
               ? `<img src="${escapeHtml(u.avatar_url)}" class="avatar" alt="" style="width:36px;height:36px;" />`
               : `<div class="avatar avatar-placeholder" style="width:36px;height:36px;font-size:0.8rem;">${escapeHtml(initials)}</div>`;
+            const isDeleted = u._deleted;
 
             return `
-              <tr class="lh-row" data-user-id="${u.id}">
+              <tr class="lh-row" data-user-id="${u.id}" style="${isDeleted ? 'opacity:0.65;' : ''}">
                 <td>
                   <div style="display:flex;align-items:center;gap:var(--space-md);">
                     ${avatarHtml}
                     <div>
-                      <div style="font-weight:600;">${escapeHtml(u.display_name || 'Unknown')}</div>
-                      <div style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(u.email || '')} &bull; ID: ${u.id}</div>
+                      <div style="font-weight:600;display:flex;align-items:center;gap:6px;">
+                        ${escapeHtml(u.display_name || 'Unknown')}
+                        ${isDeleted ? '<span class="badge badge-danger" style="font-size:0.65rem;">DELETED</span>' : ''}
+                      </div>
+                      <div style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(u.email || '')}</div>
                     </div>
                   </div>
                 </td>
                 <td>
-                  <span class="badge ${u.role === 'admin' ? 'badge-danger' : 'badge-primary'}">${u.role || 'student'}</span>
+                  <code style="font-size:0.7rem;color:var(--text-secondary);word-break:break-all;font-family:var(--font-mono);">${u.id}</code>
+                </td>
+                <td>
+                  <span class="badge ${u.role === 'admin' ? 'badge-danger' : u.role === 'unknown' ? 'badge-warning' : 'badge-primary'}">${u.role || 'student'}</span>
                 </td>
                 <td>
                   <span style="font-family:var(--font-mono);font-weight:700;font-size:1.1rem;">${u.loginCount}</span>
@@ -287,7 +317,7 @@ function renderUserTable(users) {
                 </td>
               </tr>
               <tr class="lh-detail-row" id="lh-detail-${u.id}" style="display:none;">
-                <td colspan="5" style="padding:0;">
+                <td colspan="6" style="padding:0;">
                   <div class="lh-detail-content" style="padding:var(--space-md) var(--space-lg);background:rgba(255,255,255,0.02);border-top:1px solid var(--border);">
                     ${renderLoginDetailRows(u.logins)}
                   </div>
