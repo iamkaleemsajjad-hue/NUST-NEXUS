@@ -80,7 +80,7 @@
   --z-sidebar: 100;
   --z-header: 90;
   --z-modal: 200;
-  --z-toast: 300;
+  --z-toast: 9999;
   --z-loader: 400;
 
   /* Sidebar */
