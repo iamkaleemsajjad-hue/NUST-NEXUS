@@ -171,7 +171,7 @@ export async function completeOnboarding(userId, email, displayName, password) {
   const { error: pwError } = await updatePassword(password);
   if (pwError) return { error: pwError };
   
-  // Update profile
+  // Update profile (store T&C acceptance with timestamp for legal proof)
   const { data, error } = await updateProfile(userId, {
     display_name: displayName,
     school: parsed.school,
@@ -179,6 +179,7 @@ export async function completeOnboarding(userId, email, displayName, password) {
     admission_year: parsed.year,
     onboarding_complete: true,
     terms_accepted: true,
+    terms_accepted_at: new Date().toISOString(),
   });
   
   return { data, error };

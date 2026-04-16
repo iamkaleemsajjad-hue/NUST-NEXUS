@@ -220,7 +220,7 @@ export async function renderAdminDashboard() {
 
     const { data: reports } = await supabase
       .from('upload_reports')
-      .select('*, uploads(id, title, file_url, type, user_id, profiles(display_name)), reporter:profiles!upload_reports_reporter_id_fkey(display_name, email)')
+      .select('*, uploads(id, title, file_url, type, user_id, points_awarded, profiles(display_name)), reporter:profiles!upload_reports_reporter_id_fkey(display_name, email)')
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
 
@@ -249,7 +249,7 @@ export async function renderAdminDashboard() {
               <i class="fa-solid fa-ban"></i> Dismiss
             </button>
             ${r.uploads ? `
-              <button class="btn btn-danger btn-sm" onclick="window.deleteReportedUpload('${r.id}', '${r.uploads.id}', '${r.uploads.file_url || ''}')">
+              <button class="btn btn-danger btn-sm" onclick="window.deleteReportedUpload('${r.id}', '${r.uploads.id}', '${r.uploads.file_url || ''}', '${r.uploads.user_id}', ${r.uploads.points_awarded || 0})">
                 <i class="fa-solid fa-trash"></i> Delete Resource
               </button>
             ` : ''}
@@ -270,8 +270,8 @@ export async function renderAdminDashboard() {
     window.loadReportedUploads();
   };
 
-  window.deleteReportedUpload = async function(reportId, uploadId, fileUrl) {
-    if (!confirm('Delete this resource AND mark the report as reviewed? This cannot be undone.')) return;
+  window.deleteReportedUpload = async function(reportId, uploadId, fileUrl, uploaderId, pointsAwarded) {
+    if (!confirm('Delete this resource AND deduct points from the uploader? This cannot be undone.')) return;
 
     // Delete from storage
     try {
@@ -292,7 +292,32 @@ export async function renderAdminDashboard() {
       return;
     }
 
-    showToast('Reported resource deleted permanently', 'success');
+    // ── Point Penalty: deduct points from uploader (allow negative) ──
+    let penaltyMsg = '';
+    if (uploaderId && pointsAwarded > 0) {
+      const { data: uploaderProfile } = await supabase
+        .from('profiles')
+        .select('points, display_name')
+        .eq('id', uploaderId)
+        .single();
+
+      if (uploaderProfile) {
+        const currentPoints = uploaderProfile.points || 0;
+        const newPoints = currentPoints - pointsAwarded;
+        const { error: pointsError } = await supabase
+          .from('profiles')
+          .update({ points: newPoints })
+          .eq('id', uploaderId);
+
+        if (!pointsError) {
+          penaltyMsg = ` | Penalty: -${pointsAwarded} pts from ${escapeHtml(uploaderProfile.display_name)} (${currentPoints} → ${newPoints})`;
+        } else {
+          penaltyMsg = ' | ⚠️ Could not deduct points: ' + pointsError.message;
+        }
+      }
+    }
+
+    showToast('Reported resource deleted permanently' + penaltyMsg, 'success');
     window.loadReportedUploads();
   };
 
