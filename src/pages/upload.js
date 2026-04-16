@@ -570,12 +570,12 @@ async function submitUpload(profile) {
     const fileHash = await hashFile(uploadData.file);
     updateProgress(15, 'Verifying file uniqueness...');
 
-    // const unique = await isFileUnique(supabase, fileHash);
-    // if (!unique) {
-    //   showToast('This exact file has already been uploaded.', 'error');
-    //   resetUploadUI(btn);
-    //   return;
-    // }
+    const unique = await isFileUnique(supabase, fileHash);
+    if (!unique) {
+      showToast('This exact file has already been uploaded by another user.', 'error');
+      resetUploadUI(btn);
+      return;
+    }
 
     updateProgress(25, 'Uploading to cloud storage...');
 
@@ -614,10 +614,9 @@ async function submitUpload(profile) {
       'Prefer': 'return=representation'
     };
 
-    // ─── Step C: Save to database ───────────────────────
+    // ─── Step C: Save to database (auto-approved, no admin review) ──
     const isProject = uploadData.type === 'project';
-    const status = isProject ? 'approved' : 'pending';
-    const pointsAwarded = isProject ? POINTS.UPLOAD_PROJECT : 0;
+    const pointsAwarded = isProject ? POINTS.UPLOAD_PROJECT : POINTS.UPLOAD_GENERAL;
 
     // ── OWASP: Build payload with only allowed fields (reject extras) ──
     const rawPayload = {
@@ -630,9 +629,9 @@ async function submitUpload(profile) {
       file_url: url,
       file_hash: fileHash,
       file_size: uploadData.file.size,
-      status,
+      status: 'approved',
       points_awarded: pointsAwarded,
-      reviewed_at: isProject ? new Date().toISOString() : null,
+      reviewed_at: new Date().toISOString(),
     };
     const payload = pickAllowedFields(rawPayload, [
       'user_id', 'course_id', 'teacher_id', 'semester', 'type',
@@ -669,14 +668,12 @@ async function submitUpload(profile) {
       })
     });
 
-    // ─── Step E: Award points for projects ──────────────
-    if (isProject) {
-      await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${profile.id}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ points: (profile.points || 0) + POINTS.UPLOAD_PROJECT })
-      });
-    }
+    // ─── Step E: Award points for all uploads ───────────
+    await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${profile.id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ points: (profile.points || 0) + pointsAwarded })
+    });
 
     // ─── Done! ──────────────────────────────────────────
     updateProgress(100, 'Upload complete!');
@@ -685,11 +682,7 @@ async function submitUpload(profile) {
     const bar = document.getElementById('upload-progress-bar');
     bar.classList.add('upload-progress-bar-success');
 
-    if (isProject) {
-      showToast(`Project uploaded! +${POINTS.UPLOAD_PROJECT} points awarded!`, 'success');
-    } else {
-      showToast('File uploaded successfully! It will be reviewed shortly.', 'success');
-    }
+    showToast(`Upload approved! +${pointsAwarded} points awarded!`, 'success');
 
     // Reset after a short delay
     setTimeout(() => {
@@ -798,7 +791,7 @@ async function loadUserUploads(userId) {
       ${data.map(u => {
         const statusClass = u.status === 'approved' ? 'success' : u.status === 'rejected' ? 'danger' : 'warning';
         const statusIcon = u.status === 'approved' ? 'fa-circle-check' : u.status === 'rejected' ? 'fa-circle-xmark' : 'fa-clock';
-        const statusText = u.status === 'approved' ? 'Approved' : u.status === 'rejected' ? 'Rejected' : 'Pending Review';
+        const statusText = u.status === 'approved' ? 'Approved' : u.status === 'rejected' ? 'Rejected' : 'Processing...';
         const typeInfo = UPLOAD_TYPES.find(t => t.value === u.type);
 
         return `
