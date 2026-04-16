@@ -1,5 +1,5 @@
 /**
- * NUST NEXUS — Upload Page
+ * NEVIN NEXUS — Upload Page
  * Completely rebuilt upload system with direct Supabase Storage integration.
  * Features: step wizard, drag & drop, real-time progress, duplicate detection.
  */

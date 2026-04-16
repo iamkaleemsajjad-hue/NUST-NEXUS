@@ -1,5 +1,5 @@
 /**
- * NUST NEXUS — Input Sanitization & Validation Module
+ * NEVIN NEXUS — Input Sanitization & Validation Module
  * OWASP-aligned: prevents XSS, enforces length limits, strips HTML
  */
 

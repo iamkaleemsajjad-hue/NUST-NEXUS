@@ -26,7 +26,7 @@ export async function renderOnboardingPage() {
         <div class="onboarding-card" id="onboarding-card" style="background: var(--bg-deep); color: var(--text-primary); box-shadow: var(--shadow-lg);">
           <div class="onboarding-header">
             ${getLogoSVG('onboarding-logo', '140', '140')}
-            <h2 style="color: var(--text-primary); margin-top: 15px;">Welcome to <span class="text-gradient">NUST NEXUS</span></h2>
+            <h2 style="color: var(--text-primary); margin-top: 15px;">Welcome to <span class="text-gradient">NEVIN NEXUS</span></h2>
             <p style="color: var(--text-secondary);">Let's set up your profile</p>
           </div>
 
@@ -177,7 +177,7 @@ function initOnboarding(user, parsed) {
       return;
     }
 
-    showToast('Profile setup complete! Welcome to NUST NEXUS!', 'success');
+    showToast('Profile setup complete! Welcome to NEVIN NEXUS!', 'success');
     router.navigate('/dashboard');
   });
 }
@@ -199,30 +199,109 @@ function showTermsModal() {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.innerHTML = `
-    <div class="modal-content" style="max-width:640px;">
+    <div class="modal-content" style="max-width:680px;">
       <div class="modal-header">
         <h3>Terms & Conditions</h3>
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div class="modal-body" style="max-height:400px;overflow-y:auto;">
-        <h4>NUST NEXUS Usage Agreement</h4>
-        <br/>
-        <p><strong>1. Content Responsibility</strong></p>
-        <p>By uploading any academic content (lab reports, assignments, quizzes, etc.), you agree to remove your personal information including your name and CMS ID from all uploaded documents. We are not responsible if your identity is revealed through uploaded content.</p>
-        <br/>
-        <p><strong>2. Academic Integrity</strong></p>
-        <p>The resources shared on NUST NEXUS are for reference purposes only. You are responsible for ensuring your use of these materials complies with your institution's academic integrity policies. The quizzes and assessments are your responsibility — we are not liable for any consequences arising from their use.</p>
-        <br/>
-        <p><strong>3. Original Content</strong></p>
-        <p>You must only upload content that you have the right to share. Duplicate content will be automatically detected and rejected.</p>
-        <br/>
-        <p><strong>4. Points System</strong></p>
-        <p>Points are earned through contributions and spent on downloads. Points have no monetary value and cannot be transferred.</p>
-        <br/>
-        <p><strong>5. Privacy</strong></p>
-        <p>Your email and profile information are used solely for platform functionality. We do not share your data with third parties.</p>
+      <div class="modal-body" style="max-height:450px;overflow-y:auto;line-height:1.7;">
+        <h4>🎓 NEVIN NEXUS Usage Agreement</h4>
+        <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:16px;">Last updated: April 2026</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>⚠️ DISCLAIMER</strong></p>
+        <p>NEVIN NEXUS is an independent platform. It is <strong>not affiliated with, endorsed by, sponsored by, or connected to any university, educational institution, or government body</strong> in any way.</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>1. User-Generated Content — User Responsibility</strong></p>
+        <p>NEVIN NEXUS operates as a user-driven platform. All materials (including notes, assignments, quizzes, and academic resources) are uploaded by users.</p>
+        <p>By uploading content, you confirm that:</p>
+        <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
+          <li>You are the original creator or have the legal right to share the material</li>
+          <li>The content is your own work or you have proper authorization to distribute it</li>
+          <li>The content does not violate any institutional policies, copyright laws, or confidentiality obligations</li>
+          <li>You have removed all personal identifiers (such as name, student ID, or roll number)</li>
+        </ul>
+        <p>NEVIN NEXUS does not claim ownership of user-submitted content and does not guarantee its accuracy, legality, or authenticity.</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>2. Academic Integrity & Intended Use</strong></p>
+        <p>This platform is intended strictly for <strong>learning support and reference purposes</strong>.</p>
+        <p>By using this platform, you agree:</p>
+        <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
+          <li>Not to engage in cheating, plagiarism, or academic misconduct</li>
+          <li>To comply with your institution’s academic integrity policies</li>
+          <li>To use all materials responsibly as study aids only</li>
+        </ul>
+        <p>NEVIN NEXUS is not responsible for how users utilize the content.</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>3. Prohibited Content 🚫</strong></p>
+        <p>Users must not upload:</p>
+        <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
+          <li>Official examination papers or confidential institutional documents</li>
+          <li>Restricted or unpublished academic materials</li>
+          <li>Copyrighted content without proper authorization</li>
+          <li>Any material that violates institutional rules or applicable laws</li>
+          <li>Any content you do not have the legal right to share</li>
+        </ul>
+        <p>Only self-created notes, personal study materials, and authorized content are permitted.</p>
+        <p style="color:var(--warning);"><strong>⚠️ Users who upload prohibited content do so at their own risk and are solely responsible for any resulting consequences.</strong></p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>4. Limitation of Liability</strong></p>
+        <p>NEVIN NEXUS functions solely as an intermediary for user-generated content.</p>
+        <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
+          <li>We do not actively monitor or verify all uploads</li>
+          <li>We do not endorse any content shared by users</li>
+          <li>We make no guarantees regarding the accuracy, completeness, or reliability of content</li>
+        </ul>
+        <p>To the fullest extent permitted by law, NEVIN NEXUS shall not be liable for any direct, indirect, incidental, or consequential damages arising from:</p>
+        <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
+          <li>User-submitted content</li>
+          <li>Use or misuse of platform resources</li>
+          <li>Academic or institutional actions taken against users</li>
+        </ul>
+        <p>All responsibility for uploaded material remains with the user.</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>5. Reporting & Content Removal Policy</strong></p>
+        <p>NEVIN NEXUS provides a reporting system that allows users to flag content that may:</p>
+        <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
+          <li>Violate these Terms</li>
+          <li>Infringe copyright or institutional policies</li>
+          <li>Be inaccurate, misleading, or inappropriate</li>
+        </ul>
+        <p>By submitting a report, users agree to provide accurate information.</p>
+        <p>Upon review, NEVIN NEXUS may:</p>
+        <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
+          <li>Remove or restrict access to content</li>
+          <li>Issue warnings or take action against user accounts</li>
+          <li>Suspend or permanently terminate accounts involved in violations</li>
+        </ul>
+        <p>We reserve the right to act on reports at our discretion and to comply with valid legal or institutional requests.</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>6. Points System</strong></p>
+        <p>Points are earned through contributions and used to access resources.</p>
+        <p>Points hold no monetary value and are non-transferable and non-refundable.</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>7. Privacy</strong></p>
+        <p>User data (including email and profile information) is used solely for platform functionality.</p>
+        <p>We do not sell or share personal data with third parties.</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>8. No Institutional Affiliation</strong></p>
+        <p>NEVIN NEXUS is an independent platform with no affiliation to any institution.</p>
+        <p>All content is submitted by users, and responsibility for such content lies entirely with the individual who uploaded it.</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
+
+        <p><strong>9. Acceptance of Terms</strong></p>
+        <p>By accessing or using NEVIN NEXUS, you confirm that you have read, understood, and agreed to these Terms & Conditions.</p>
+        <p>If you do not agree, you must discontinue use of the platform.</p>
       </div>
     </div>
   `;

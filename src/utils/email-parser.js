@@ -1,7 +1,7 @@
 import { VALID_DOMAINS, ADMIN_EMAIL } from '../config.js';
 
 /**
- * Validate if an email belongs to NUST
+ * Validate if an email belongs to a supported university
  */
 export function isValidNustEmail(email) {
   if (ADMIN_EMAIL && email === ADMIN_EMAIL) return true;

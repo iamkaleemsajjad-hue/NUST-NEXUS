@@ -1,5 +1,5 @@
 /**
- * NUST NEXUS — Admin Login History Page
+ * NEVIN NEXUS — Admin Login History Page
  * Shows comprehensive login analytics for all users.
  */
 

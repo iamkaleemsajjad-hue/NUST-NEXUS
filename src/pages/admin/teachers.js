@@ -104,8 +104,23 @@ export async function renderAdminTeachers() {
 
   document.getElementById('teacher-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const id = document.getElementById('tf-id').value;
-    const avatarFile = document.getElementById('tf-avatar').files[0];
+    const formEl = document.getElementById('teacher-form');
+    const idEl = document.getElementById('tf-id');
+    const nameEl = document.getElementById('tf-name');
+    const designationEl = document.getElementById('tf-designation');
+    const schoolEl = document.getElementById('tf-school');
+    const descriptionEl = document.getElementById('tf-description');
+    const avatarEl = document.getElementById('tf-avatar');
+    const submitBtn = document.getElementById('tf-submit');
+
+    // Guard: if any element is missing (DOM destroyed), abort gracefully
+    if (!formEl || !idEl || !nameEl || !designationEl || !schoolEl || !submitBtn) {
+      showToast('Form elements not found. Please refresh the page.', 'error');
+      return;
+    }
+
+    const id = idEl.value;
+    const avatarFile = avatarEl?.files?.[0];
 
     let avatarUrl = null;
 
@@ -130,13 +145,21 @@ export async function renderAdminTeachers() {
     }
 
     const payload = {
-      name: document.getElementById('tf-name').value.trim(),
-      designation: document.getElementById('tf-designation').value.trim(),
-      school_id: document.getElementById('tf-school').value,
-      description: document.getElementById('tf-description').value.trim() || null,
+      name: nameEl.value.trim(),
+      designation: designationEl.value.trim(),
+      school_id: schoolEl.value,
+      description: descriptionEl?.value?.trim() || null,
     };
 
+    if (!payload.name || !payload.designation || !payload.school_id) {
+      showToast('Please fill in all required fields', 'warning');
+      return;
+    }
+
     if (avatarUrl) payload.avatar_url = avatarUrl;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span> Saving...';
 
     let error;
     if (id) {
@@ -144,6 +167,9 @@ export async function renderAdminTeachers() {
     } else {
       ({ error } = await supabase.from('teachers').insert(payload));
     }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = id ? 'Update Teacher' : 'Add Teacher';
 
     if (error) {
       showToast('Failed: ' + error.message, 'error');

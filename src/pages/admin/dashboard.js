@@ -22,6 +22,7 @@ export async function renderAdminDashboard() {
   const { count: totalFeedback } = await supabase.from('feedback').select('*', { count: 'exact', head: true });
   const { count: totalTeachers } = await supabase.from('teachers').select('*', { count: 'exact', head: true });
   const { count: totalCourses } = await supabase.from('courses').select('*', { count: 'exact', head: true });
+  const { count: pendingReports } = await supabase.from('upload_reports').select('*', { count: 'exact', head: true }).eq('status', 'pending');
 
   app.innerHTML = `
     <div class="app-layout">
@@ -56,6 +57,10 @@ export async function renderAdminDashboard() {
               <div class="stat-icon" style="background:rgba(255,59,92,0.1);color:var(--danger);"><i class="fa-solid fa-comment-dots"></i></div>
               <div class="stat-info"><span class="stat-value">${totalFeedback || 0}</span><span class="stat-label">Feedback</span></div>
             </div>
+            <div class="stat-card card">
+              <div class="stat-icon" style="background:rgba(255,120,0,0.1);color:#ff7800;"><i class="fa-solid fa-flag"></i></div>
+              <div class="stat-info"><span class="stat-value">${pendingReports || 0}</span><span class="stat-label">Pending Reports</span></div>
+            </div>
           </div>
 
           <!-- Quick Actions -->
@@ -84,6 +89,17 @@ export async function renderAdminDashboard() {
           <div class="card" style="margin-top:var(--space-xl);">
             <h3 style="margin-bottom:var(--space-lg);">Recent Students</h3>
             <div id="recent-users"></div>
+          </div>
+
+          <!-- Reported Uploads -->
+          <div class="card" style="margin-top:var(--space-xl);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);">
+              <h3 style="margin:0;"><i class="fa-solid fa-flag" style="color:var(--warning);"></i> Reported Uploads</h3>
+              <button class="btn btn-ghost btn-sm" onclick="window.loadReportedUploads()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+            </div>
+            <div id="reported-uploads">
+              <div class="skeleton skeleton-card" style="height:100px;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -196,6 +212,91 @@ export async function renderAdminDashboard() {
   };
 
   window.loadPendingUploads();
+
+  // ── Reported Uploads ──
+  window.loadReportedUploads = async function() {
+    const reportList = document.getElementById('reported-uploads');
+    reportList.innerHTML = '<div class="spinner"></div>';
+
+    const { data: reports } = await supabase
+      .from('upload_reports')
+      .select('*, uploads(id, title, file_url, type, user_id, profiles(display_name)), reporter:profiles!upload_reports_reporter_id_fkey(display_name, email)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+
+    if (!reports || reports.length === 0) {
+      reportList.innerHTML = '<div class="empty-state"><p>No pending reports. All clear! ✅</p></div>';
+      return;
+    }
+
+    reportList.innerHTML = reports.map(r => `
+      <div class="card" style="display:flex;flex-direction:column;gap:8px;padding:14px;margin-bottom:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border);" id="report-${r.id}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="flex:1;min-width:0;">
+            <h4 style="margin-bottom:4px;">
+              <i class="fa-solid fa-flag" style="color:var(--warning);font-size:0.8rem;"></i>
+              ${escapeHtml(r.uploads?.title || 'Deleted Resource')}
+            </h4>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;line-height:1.6;">
+              <strong>Reported by:</strong> ${escapeHtml(r.reporter?.display_name || 'Unknown')} (${escapeHtml(r.reporter?.email || '')})<br>
+              <strong>Reason:</strong> <span style="color:var(--warning);">${escapeHtml(r.reason)}</span><br>
+              <strong>Date:</strong> ${new Date(r.created_at).toLocaleDateString()} ${new Date(r.created_at).toLocaleTimeString()}
+            </p>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0;">
+            ${r.uploads?.file_url ? `<a href="${r.uploads.file_url}" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-eye"></i> View</a>` : ''}
+            <button class="btn btn-ghost btn-sm" style="color:var(--text-muted);" onclick="window.dismissReport('${r.id}')">
+              <i class="fa-solid fa-ban"></i> Dismiss
+            </button>
+            ${r.uploads ? `
+              <button class="btn btn-danger btn-sm" onclick="window.deleteReportedUpload('${r.id}', '${r.uploads.id}', '${r.uploads.file_url || ''}')">
+                <i class="fa-solid fa-trash"></i> Delete Resource
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  window.dismissReport = async function(reportId) {
+    if (!confirm('Dismiss this report? The resource will remain available.')) return;
+    const { error } = await supabase.from('upload_reports').update({ status: 'dismissed' }).eq('id', reportId);
+    if (error) {
+      showToast('Error dismissing report: ' + error.message, 'error');
+      return;
+    }
+    showToast('Report dismissed', 'success');
+    window.loadReportedUploads();
+  };
+
+  window.deleteReportedUpload = async function(reportId, uploadId, fileUrl) {
+    if (!confirm('Delete this resource AND mark the report as reviewed? This cannot be undone.')) return;
+
+    // Delete from storage
+    try {
+      const urlObj = new URL(fileUrl);
+      const pathParts = urlObj.pathname.split('/public/uploads/');
+      if (pathParts.length > 1) {
+        const filePath = decodeURIComponent(pathParts[1]);
+        await supabase.storage.from('uploads').remove([filePath]);
+      }
+    } catch (e) {
+      console.warn('Could not parse file URL for storage deletion', e);
+    }
+
+    // Delete the upload record (cascade will remove the report too)
+    const { error: delError } = await supabase.from('uploads').delete().eq('id', uploadId);
+    if (delError) {
+      showToast('Error deleting resource: ' + delError.message, 'error');
+      return;
+    }
+
+    showToast('Reported resource deleted permanently', 'success');
+    window.loadReportedUploads();
+  };
+
+  window.loadReportedUploads();
 
   // Real-time: auto-refresh pending uploads when any upload changes
   subscribeToTable('admin-pending-uploads', 'uploads', null, (payload) => {

@@ -1,5 +1,5 @@
 /**
- * NUST NEXUS — Configuration
+ * NEVIN NEXUS — Configuration
  *
  * SECURITY NOTES (OWASP):
  * - SUPABASE_ANON_KEY is a PUBLIC key (safe for client-side) — it only grants
@@ -25,7 +25,7 @@ export const POINTS = {
   ASSESSMENT_FULFILL_BONUS: 5, // extra points on top of upload for fulfilling a request
 };
 
-// NUST Email Domains
+// University Email Domains
 export const VALID_DOMAINS = [
   'seecs.edu.pk',
   'smme.edu.pk',

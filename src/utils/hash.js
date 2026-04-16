@@ -1,5 +1,5 @@
 /**
- * NUST NEXUS — File Hashing Utility
+ * NEVIN NEXUS — File Hashing Utility
  * SHA-256 hashing via Web Crypto API for duplicate detection.
  */
 

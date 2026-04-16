@@ -16,7 +16,7 @@ export async function renderLoginPage() {
         <div class="login-hero-logo logo-3d-spin">
           ${getLogoSVG('hero-logo-svg', '180', '180', true)}
         </div>
-        <h1 class="login-hero-title">NUST NEXUS</h1>
+        <h1 class="login-hero-title">NEVIN NEXUS</h1>
         <p class="login-hero-tagline">Innovating the Future</p>
         <div class="hero-features">
           <div class="hero-feature"><i class="fa-solid fa-cloud-arrow-up"></i> Share Resources</div>
@@ -47,7 +47,7 @@ export async function renderLoginPage() {
               <label class="form-label">Email Address</label>
               <div class="input-with-icon">
                 <i class="fa-solid fa-envelope"></i>
-                <input type="email" class="form-input" id="signin-email" placeholder="your.email@nust.edu.pk" required />
+                <input type="email" class="form-input" id="signin-email" placeholder="your.email@university.edu.pk" required />
               </div>
             </div>
             <div class="form-group">
@@ -84,9 +84,9 @@ export async function renderLoginPage() {
               <label class="form-label">Email Address</label>
               <div class="input-with-icon">
                 <i class="fa-solid fa-envelope"></i>
-                <input type="email" class="form-input" id="signup-email" placeholder="your.email@nust.edu.pk" required />
+                <input type="email" class="form-input" id="signup-email" placeholder="your.email@university.edu.pk" required />
               </div>
-              <span class="form-helper">Use your NUST email (@nust.edu.pk, @seecs.edu.pk, etc.)</span>
+              <span class="form-helper">Use your university email (@student.university.edu, @alumni.university.edu, etc.)</span>
             </div>
 
             <button type="submit" class="btn btn-primary btn-block btn-lg" id="signup-btn">
@@ -198,7 +198,7 @@ function initLoginEvents() {
     signinForm.style.display = 'none';
     otpSection.style.display = 'none';
     formHeader.querySelector('h2').textContent = 'Create Account';
-    formHeader.querySelector('p').textContent = 'Join the NUST NEXUS community';
+    formHeader.querySelector('p').textContent = 'Join the NEVIN NEXUS community';
   });
 
   // Forgot password → switch to sign up tab
@@ -250,12 +250,12 @@ function initLoginEvents() {
 
     const { valid: emailOk, email } = sanitizeEmail(emailRaw);
     if (!emailOk) {
-      showToast('Enter a valid NUST email address', 'error');
+      showToast('Enter a valid university email address', 'error');
       return;
     }
 
     if (!email.endsWith('.edu.pk')) {
-      showToast('invalid email ! Use your NUST email ! ', 'error');
+      showToast('invalid email ! Use your university email ! ', 'error');
       return;
     }
 
@@ -278,7 +278,7 @@ function initLoginEvents() {
       console.error('Ban check error:', rpcErr);
       // Fallback: don't block if RPC fails due to connectivity, but log it
     } else if (isBanned) {
-      showToast('This email has been banned from NUST Nexus. Registration is blocked.', 'error');
+      showToast('This email has been banned from NEVIN NEXUS. Registration is blocked.', 'error');
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create Account';
       return;
@@ -350,7 +350,7 @@ function initLoginEvents() {
     const { data: isBannedResend } = await supabase.rpc('is_email_banned', { p_email: pendingEmail });
 
     if (isBannedResend) {
-      showToast('This email has been banned from NUST Nexus.', 'error');
+      showToast('This email has been banned from NEVIN NEXUS.', 'error');
       return;
     }
 
