@@ -1,5 +1,5 @@
 /**
- * Premium NUST NEXUS Logo as an SVG component
+ * Premium NEVIN NEXUS Logo as an SVG component
  * @param {string} className - Additional CSS classes
  * @param {string} width - SVG logic width
  * @param {string} height - SVG logic height

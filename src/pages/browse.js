@@ -164,7 +164,11 @@ async function loadResources(profile, accessibleSemesters) {
                   <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="window.deleteUpload('${r.id}', '${r.file_url}')" title="Delete Resource">
                     <i class="fa-solid fa-trash"></i>
                   </button>
-                ` : ''}
+                ` : `
+                  <button class="btn btn-ghost btn-sm report-btn" data-id="${r.id}" data-title="${escapeHtml(r.title)}" title="Report this resource" style="color:var(--warning);">
+                    <i class="fa-solid fa-flag"></i>
+                  </button>
+                `}
                 <button class="btn btn-primary btn-sm download-btn" data-id="${r.id}" data-url="${r.file_url}" data-title="${escapeHtml(r.title)}" data-type="${r.type}">
                   <i class="fa-solid fa-download"></i> Download
                 </button>
@@ -237,6 +241,15 @@ async function loadResources(profile, accessibleSemesters) {
     });
   });
 
+  // Report handlers
+  container.querySelectorAll('.report-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const uploadId = btn.dataset.id;
+      const uploadTitle = btn.dataset.title;
+      showReportModal(uploadId, uploadTitle, profile.id);
+    });
+  });
+
   // Attach global click handler for deleting uploads
   window.deleteUpload = async (id, fileUrl) => {
     if(!confirm('Are you strictly sure you want to permanently delete this resource and its associated file?')) return;
@@ -271,4 +284,109 @@ async function loadResources(profile, accessibleSemesters) {
     const btn = document.getElementById('filter-btn');
     if (btn) btn.click();
   };
+}
+
+/**
+ * Show a report modal for flagging a resource
+ */
+function showReportModal(uploadId, uploadTitle, reporterId) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-flag" style="color:var(--warning);"></i> Report Resource</h3>
+        <button class="modal-close" id="close-report-modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text-secondary);margin-bottom:var(--space-lg);font-size:0.875rem;">
+          Reporting: <strong>${uploadTitle}</strong>
+        </p>
+        <div class="form-group">
+          <label class="form-label">Why are you reporting this resource?</label>
+          <textarea class="form-input" id="report-reason" rows="4" 
+            placeholder="e.g. Fake content, copyright violation, contains personal info, inappropriate material..."
+            maxlength="500" required style="resize:vertical;"></textarea>
+          <span class="form-helper" style="display:flex;justify-content:space-between;">
+            <span>Be specific so admins can take action</span>
+            <span id="report-char-count">0/500</span>
+          </span>
+        </div>
+        <div style="display:flex;gap:var(--space-md);justify-content:flex-end;margin-top:var(--space-lg);">
+          <button class="btn btn-ghost" id="cancel-report-btn">Cancel</button>
+          <button class="btn btn-danger" id="submit-report-btn">
+            <i class="fa-solid fa-flag"></i> Submit Report
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Close handlers
+  const closeModal = () => modal.remove();
+  modal.querySelector('#close-report-modal').addEventListener('click', closeModal);
+  modal.querySelector('#cancel-report-btn').addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  // Char counter
+  const textarea = modal.querySelector('#report-reason');
+  const charCount = modal.querySelector('#report-char-count');
+  textarea.addEventListener('input', () => {
+    charCount.textContent = `${textarea.value.length}/500`;
+  });
+
+  // Submit
+  modal.querySelector('#submit-report-btn').addEventListener('click', async () => {
+    const reason = textarea.value.trim();
+    if (!reason || reason.length < 10) {
+      showToast('Please provide a detailed reason (at least 10 characters)', 'warning');
+      return;
+    }
+
+    // Rate limit: max 5 reports per hour
+    const rl = checkRateLimit('report', 5, 3600000);
+    if (!rl.allowed) {
+      showToast(`Too many reports. Please wait ${Math.ceil(rl.remainingMs / 60000)} min`, 'error');
+      return;
+    }
+
+    // Check for duplicate report
+    const { data: existing } = await supabase
+      .from('upload_reports')
+      .select('id')
+      .eq('upload_id', uploadId)
+      .eq('reporter_id', reporterId)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existing) {
+      showToast('You already have a pending report for this resource', 'warning');
+      closeModal();
+      return;
+    }
+
+    const submitBtn = modal.querySelector('#submit-report-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span> Submitting...';
+
+    const { error } = await supabase.from('upload_reports').insert({
+      upload_id: uploadId,
+      reporter_id: reporterId,
+      reason: reason,
+    });
+
+    if (error) {
+      showToast('Failed to submit report: ' + error.message, 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="fa-solid fa-flag"></i> Submit Report';
+      return;
+    }
+
+    showToast('Report submitted! An admin will review it shortly.', 'success');
+    closeModal();
+  });
 }

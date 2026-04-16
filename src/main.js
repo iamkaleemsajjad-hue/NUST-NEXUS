@@ -151,6 +151,7 @@ async function init() {
   // Listen for auth state changes
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_OUT') {
+      localStorage.removeItem('nevin_nexus_login_ts');
       router.navigate('/login');
     } else if (event === 'SIGNED_IN') {
       const user = session?.user;
@@ -172,7 +173,7 @@ async function init() {
                   <div style="font-size:3rem;margin-bottom:16px;">🚫</div>
                   <h2 style="color:var(--danger);margin-bottom:12px;">Account Banned</h2>
                   <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;margin-bottom:24px;">
-                    Your account has been permanently banned from NUST Nexus.
+                    Your account has been permanently banned from NEVIN NEXUS.
                     ${banCheck.ban_reason ? `<br><br><strong>Reason:</strong> ${banCheck.ban_reason}` : ''}
                   </p>
                   <p style="color:var(--text-muted);font-size:0.8rem;">If you believe this is an error, contact the administrator.</p>
@@ -205,6 +206,9 @@ async function init() {
 
   // ── Inactivity Auto-Logout (2 hours) ──
   initInactivityTracker();
+
+  // ── Absolute 2-hour session expiry ──
+  initAbsoluteSessionTimeout();
 }
 
 // Add ripple effect to buttons
@@ -245,6 +249,36 @@ function initInactivityTracker() {
 
   // Start the timer
   resetTimer();
+}
+
+/**
+ * Absolute session timeout: auto-logout exactly 2 hours after login,
+ * regardless of user activity. Stores login timestamp in localStorage.
+ */
+function initAbsoluteSessionTimeout() {
+  const SESSION_MAX_MS = 2 * 60 * 60 * 1000; // 2 hours
+  const KEY = 'nevin_nexus_login_ts';
+
+  // On SIGNED_IN, store login timestamp (only if not already set)
+  if (!localStorage.getItem(KEY)) {
+    localStorage.setItem(KEY, Date.now().toString());
+  }
+
+  function checkTimeout() {
+    const loginTs = parseInt(localStorage.getItem(KEY) || '0', 10);
+    if (!loginTs) return;
+    const elapsed = Date.now() - loginTs;
+    if (elapsed >= SESSION_MAX_MS) {
+      console.warn('[session] Absolute 2-hour session expired — logging out');
+      localStorage.removeItem(KEY);
+      supabase.auth.signOut().then(() => router.navigate('/login'));
+    }
+  }
+
+  // Check every 30 seconds
+  setInterval(checkTimeout, 30000);
+  // Also check immediately
+  checkTimeout();
 }
 
 // ── Tab Presence Logic ──

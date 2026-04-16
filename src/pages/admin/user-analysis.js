@@ -86,7 +86,7 @@ export async function renderAdminUserAnalysis() {
                   </div>
                   <span style="display:block;margin-top:6px;font-size:0.75rem;color:var(--text-muted);">
                     <i class="fa-solid fa-info-circle"></i> 
-                    Enter a display name (e.g. "Muhammad"), email (e.g. "user@seecs.edu.pk"), or full UUID
+                    Enter a display name (e.g. "Muhammad"), email (e.g. "user@university.edu"), or full UUID
                   </span>
                 </div>
                 <button type="submit" class="btn btn-primary" id="ua-search-btn" style="height:46px;padding:0 24px;font-weight:700;flex-shrink:0;">
