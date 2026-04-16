@@ -74,8 +74,8 @@ export async function renderAskQuestionsPage() {
               <div class="card" style="margin-top:var(--space-md);padding:var(--space-md);">
                 <h4 style="font-size:0.85rem;margin-bottom:var(--space-sm);"><i class="fa-solid fa-shield-halved" style="color:var(--warning);"></i> Community Rules</h4>
                 <ul style="font-size:0.8rem;color:var(--text-muted);line-height:1.8;list-style:disc;padding-left:16px;">
-                  <li>Max <strong>3 questions</strong> per week</li>
-                  <li>Max <strong>7 answers</strong> per week per user</li>
+                  <li>Max <strong>50 questions</strong> per week</li>
+                  <li>Max <strong>100 answers</strong> per week per user</li>
                   <li>After <strong>14 days</strong>, top-voted answer is auto-accepted</li>
                   <li>No anonymous spam</li>
                   <li>Be respectful</li>
@@ -117,11 +117,11 @@ export async function renderAskQuestionsPage() {
         </div>
         <form id="qa-ask-form">
           <div class="form-group">
-            <label class="form-label">Title <span style="color:var(--text-muted);font-size:0.8rem;">(10-200 chars)</span></label>
-            <input type="text" class="form-input" id="q-title" placeholder="What's your question? Be specific." maxlength="200" required>
+            <label class="form-label">Title</label>
+            <input type="text" class="form-input" id="q-title" placeholder="What's your question? Be specific." required>
           </div>
           <div class="form-group">
-            <label class="form-label">Details <span style="color:var(--text-muted);font-size:0.8rem;">(min 20 chars)</span></label>
+            <label class="form-label">Details</label>
             <textarea class="form-textarea" id="q-body" rows="5" placeholder="Provide more context, what you've tried, etc." required></textarea>
           </div>
           <div class="form-group">
@@ -309,6 +309,14 @@ function renderQuestionList() {
       (q.body || '').toLowerCase().includes(_searchQuery)
     );
   }
+
+  // Sort by upvotes (descending), then by date (newest first)
+  filtered.sort((a, b) => {
+    const upvotesA = (a.question_upvotes || []).length;
+    const upvotesB = (b.question_upvotes || []).length;
+    if (upvotesA !== upvotesB) return upvotesB - upvotesA;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
 
   if (filtered.length === 0) {
     container.innerHTML = `
@@ -565,7 +573,7 @@ function renderAnswerBlock(a, q) {
         </div>
         <div class="reply-input-row" style="margin-top:var(--space-sm);">
           <div class="reply-avatar-init">${_profile.display_name.charAt(0).toUpperCase()}</div>
-          <input type="text" id="reply-input-${a.id}" placeholder="Write a reply..." maxlength="1000">
+          <input type="text" id="reply-input-${a.id}" placeholder="Write a reply...">
           <button class="btn btn-primary btn-sm" onclick="window.submitReply('${a.id}')">
             <i class="fa-solid fa-paper-plane"></i>
           </button>
@@ -624,8 +632,8 @@ async function handleAskQuestion(e) {
     .eq('is_deleted', false)
     .gte('created_at', weekAgo);
 
-  if ((count || 0) >= 3) {
-    showToast('Weekly limit reached: max 3 questions per week.', 'error');
+  if ((count || 0) >= 50) {
+    showToast('Weekly limit reached: max 50 questions per week.', 'error');
     return;
   }
 
@@ -633,11 +641,8 @@ async function handleAskQuestion(e) {
   const rawBody = document.getElementById('q-body').value;
   const selectedTags = [...document.querySelectorAll('#q-tag-selector .tag-pill.active')].map(p => p.dataset.tag);
 
-  const title = sanitizeText(rawTitle, 200);
-  const body = sanitizeText(rawBody, 4000);
-
-  if (title.length < 10) { showToast('Title must be at least 10 characters.', 'warning'); return; }
-  if (body.length < 20) { showToast('Details must be at least 20 characters.', 'warning'); return; }
+  const title = sanitizeText(rawTitle, 10000000);
+  const body = sanitizeText(rawBody, 10000000);
 
   const btn = document.getElementById('qa-ask-submit');
   btn.disabled = true;
@@ -674,13 +679,12 @@ async function handlePostAnswer(questionId) {
     .eq('is_deleted', false)
     .gte('created_at', weekAgo);
 
-  if ((count || 0) >= 7) {
-    showToast('Weekly limit reached: max 7 answers per week per user.', 'error');
+  if ((count || 0) >= 100) {
+    showToast('Weekly limit reached: max 100 answers per week per user.', 'error');
     return;
   }
 
-  const body = sanitizeText(textarea.value, 4000);
-  if (body.length < 10) { showToast('Answer must be at least 10 characters.', 'warning'); return; }
+  const body = sanitizeText(textarea.value, 10000000);
 
   const btn = document.getElementById('qa-footer-submit');
   btn.disabled = true;
@@ -761,6 +765,9 @@ async function toggleQuestionUpvote(questionId) {
     const el = document.getElementById(id);
     if (el) el.textContent = newCount;
   });
+
+  // Re-render to apply sorting
+  renderQuestionList();
 }
 
 async function handleAnswerUpvote(answerId, questionId) {
@@ -802,7 +809,7 @@ async function handleAnswerUpvote(answerId, questionId) {
 async function handleSubmitReply(answerId) {
   const input = document.getElementById(`reply-input-${answerId}`);
   if (!input) return;
-  const body = sanitizeText(input.value, 1000);
+  const body = sanitizeText(input.value, 10000000);
   if (body.length < 1) return;
 
   const { error } = await supabase.from('answer_replies').insert({
