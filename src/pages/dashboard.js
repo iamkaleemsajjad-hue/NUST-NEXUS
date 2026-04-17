@@ -8,6 +8,8 @@ import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
 import { subscribeToTable } from '../utils/realtime.js';
 import gsap from 'gsap';
+import { checkAndShowRewardPopup } from '../components/reward-popup.js';
+import { showWelcomeTour } from '../components/welcome-tour.js';
 
 export async function renderDashboardPage() {
   const app = document.getElementById('app');
@@ -186,6 +188,12 @@ export async function renderDashboardPage() {
   subscribeToTable('dashboard-my-uploads', 'uploads', `user_id=eq.${user.id}`, () => {
     loadRecentUploads(user.id);
   });
+
+  // Welcome tour for first-time users (shows before reward popup)
+  await showWelcomeTour(user.id);
+
+  // Check for unseen reward popups
+  checkAndShowRewardPopup(user.id);
 
   // Avatar upload
   document.getElementById('avatar-input')?.addEventListener('change', async (e) => {

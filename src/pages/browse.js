@@ -96,24 +96,37 @@ async function loadResources(profile, accessibleSemesters) {
 
   container.innerHTML = '<div class="skeleton skeleton-card" style="height:300px;"></div>';
 
-  let query = supabase.from('uploads')
-    .select('*, profiles(display_name), courses(name, code, semester)')
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false });
+  // Fetch ratings in parallel
+  const [resourcesResult, ratingsResult] = await Promise.all([
+    (async () => {
+      let query = supabase.from('uploads')
+        .select('*, profiles(display_name), courses(name, code, semester)')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
 
-  // Semester filter
-  if (semesterFilter) {
-    query = query.eq('semester', parseInt(semesterFilter));
-  } else if (!adminUser) {
-    // Students only see their accessible semesters
-    query = query.in('semester', accessibleSemesters);
-  }
-  // Admin sees all semesters when no filter applied
+      if (semesterFilter) {
+        query = query.eq('semester', parseInt(semesterFilter));
+      } else if (!adminUser) {
+        query = query.in('semester', accessibleSemesters);
+      }
+      if (typeFilter) query = query.eq('type', typeFilter);
+      if (searchFilter) query = query.ilike('title', `%${searchFilter}%`);
+      return query;
+    })(),
+    supabase.from('upload_ratings').select('upload_id, stars, user_id')
+  ]);
 
-  if (typeFilter) query = query.eq('type', typeFilter);
-  if (searchFilter) query = query.ilike('title', `%${searchFilter}%`);
+  const { data, error } = resourcesResult;
+  const allRatings = ratingsResult.data || [];
 
-  const { data, error } = await query;
+  // Build ratings lookup: { upload_id: { avg, count, myRating } }
+  const ratingsMap = {};
+  allRatings.forEach(r => {
+    if (!ratingsMap[r.upload_id]) ratingsMap[r.upload_id] = { sum: 0, count: 0, myRating: 0 };
+    ratingsMap[r.upload_id].sum += r.stars;
+    ratingsMap[r.upload_id].count++;
+    if (r.user_id === profile.id) ratingsMap[r.upload_id].myRating = r.stars;
+  });
 
   if (error) {
     container.innerHTML = `<div class="empty-state"><p>Error loading resources: ${error.message}</p></div>`;
@@ -154,6 +167,24 @@ async function loadResources(profile, accessibleSemesters) {
               </div>
             </div>
             ${r.description ? `<p style="color:var(--text-secondary);font-size:0.8125rem;margin:var(--space-md) 0;">${escapeHtml(String(r.description)).substring(0, 120)}${String(r.description).length > 120 ? '...' : ''}</p>` : ''}
+            <!-- Star Rating -->
+            ${(() => {
+              const rm = ratingsMap[r.id] || { sum: 0, count: 0, myRating: 0 };
+              const avg = rm.count > 0 ? (rm.sum / rm.count).toFixed(1) : '0.0';
+              const alreadyRated = rm.myRating > 0;
+              return `
+              <div style="display:flex;align-items:center;gap:8px;margin-top:var(--space-sm);" class="star-rating-row" data-upload-id="${r.id}">
+                <div class="star-interactive" style="display:flex;gap:2px;${alreadyRated ? '' : 'cursor:pointer;'}">
+                  ${[1,2,3,4,5].map(s => `
+                    <i class="fa-${s <= rm.myRating ? 'solid' : 'regular'} fa-star ${alreadyRated ? '' : 'star-icon'}" 
+                       ${alreadyRated ? '' : `data-star="${s}" data-upload="${r.id}"`}
+                       style="font-size:0.85rem;color:${s <= rm.myRating ? '#ffcc00' : 'var(--text-muted)'};${alreadyRated ? 'opacity:0.85;' : 'cursor:pointer;transition:color 0.15s,transform 0.15s;'}"
+                       ${alreadyRated ? '' : 'onmouseenter="this.style.transform=\'scale(1.25)\'" onmouseleave="this.style.transform=\'scale(1)\'"'}></i>
+                  `).join('')}
+                </div>
+                <span style="font-size:0.78rem;color:var(--text-muted);">${avg} <span style="opacity:0.6;">(${rm.count})</span>${alreadyRated ? ' <i class="fa-solid fa-lock" style="font-size:0.6rem;opacity:0.4;"></i>' : ''}</span>
+              </div>`;
+            })()}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-md);padding-top:var(--space-md);border-top:1px solid var(--border);">
               <span style="color:var(--text-muted);font-size:0.75rem;">
                 <i class="fa-solid fa-user"></i> ${r.profiles?.display_name || 'Unknown'} •
@@ -181,6 +212,45 @@ async function loadResources(profile, accessibleSemesters) {
   `;
 
   gsap.fromTo('.resource-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, stagger: 0.05, ease: 'power3.out' });
+
+  // Star rating click handlers
+  container.querySelectorAll('.star-icon').forEach(star => {
+    star.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const uploadId = star.dataset.upload;
+      const stars = parseInt(star.dataset.star);
+
+      const rl = checkRateLimit('rate', 20, 3600000);
+      if (!rl.allowed) {
+        showToast('Too many ratings. Please slow down.', 'warning');
+        return;
+      }
+
+      // Insert (not upsert) for one-time rating
+      const { error: rateErr } = await supabase
+        .from('upload_ratings')
+        .insert({ upload_id: uploadId, user_id: profile.id, stars });
+
+      if (rateErr) {
+        showToast('Failed to rate: ' + rateErr.message, 'error');
+        return;
+      }
+
+      // Update the stars visually in-place and lock them
+      const row = container.querySelector(`.star-rating-row[data-upload-id="${uploadId}"]`);
+      if (row) {
+        row.querySelectorAll('.star-icon, .fa-star').forEach(s => {
+          const v = parseInt(s.dataset.star || '0');
+          s.className = `fa-${v <= stars ? 'solid' : 'regular'} fa-star`;
+          s.style.color = v <= stars ? '#ffcc00' : 'var(--text-muted)';
+          s.style.opacity = '0.85';
+          s.style.cursor = 'default';
+          s.replaceWith(s.cloneNode(true)); // Remove event listeners
+        });
+      }
+      showToast(`Rated ${stars} star${stars !== 1 ? 's' : ''}!`, 'success');
+    });
+  });
 
   // Download handlers
   container.querySelectorAll('.download-btn').forEach(btn => {

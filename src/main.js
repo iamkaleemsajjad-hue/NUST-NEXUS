@@ -25,6 +25,7 @@ import { renderAdminAssessmentRequests } from './pages/admin/assessment-requests
 import { renderAdminUserAnalysis } from './pages/admin/user-analysis.js';
 import { renderAdminDeleteRequests } from './pages/admin/delete-requests.js';
 import { renderAdminBanUsers } from './pages/admin/ban-users.js';
+import { renderAdminGivePoints } from './pages/admin/give-points.js';
 import { unsubscribeAll } from './utils/realtime.js';
 
 
@@ -54,6 +55,7 @@ router.addRoute('/admin/assessment-requests', renderAdminAssessmentRequests);
 router.addRoute('/admin/user-analysis', renderAdminUserAnalysis);
 router.addRoute('/admin/delete-requests', renderAdminDeleteRequests);
 router.addRoute('/admin/ban-users', renderAdminBanUsers);
+router.addRoute('/admin/give-points', renderAdminGivePoints);
 
 
 // Auth guard + cleanup + instant skeleton
