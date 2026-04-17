@@ -42,6 +42,7 @@ export function renderSidebar(profile) {
     { href: '/admin/user-analysis', icon: 'fa-magnifying-glass-chart', label: 'User Analysis' },
     { href: '/admin/delete-requests', icon: 'fa-user-xmark', label: 'Deletion Requests' },
     { href: '/admin/ban-users', icon: 'fa-ban', label: 'Ban Users' },
+    { href: '/admin/give-points', icon: 'fa-coins', label: 'Give Points' },
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;

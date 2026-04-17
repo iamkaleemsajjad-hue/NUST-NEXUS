@@ -241,8 +241,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse at 30% 50%, rgba(127, 140, 141, 0.04) 0%, transparent 50%),
-    var(--bg-deep);
+  background: var(--bg-deep);
   padding: var(--space-xl);
 }
 
