@@ -61,7 +61,7 @@ export async function renderDashboardPage() {
           </div>
 
           <!-- Stats Grid -->
-          <div class="grid-4 dash-stats" id="dash-stats">
+          <div class="grid-3 dash-stats" id="dash-stats">
             <div class="stat-card card">
               <div class="stat-icon" style="background:rgba(var(--warning-rgb),0.1);color:var(--warning);">
                 <i class="fa-solid fa-coins"></i>
@@ -87,15 +87,6 @@ export async function renderDashboardPage() {
               <div class="stat-info">
                 <span class="stat-value">${downloadCount || 0}</span>
                 <span class="stat-label">Downloads</span>
-              </div>
-            </div>
-            <div class="stat-card card">
-              <div class="stat-icon" style="background:rgba(var(--primary-rgb),0.1);color:var(--primary);">
-                <i class="fa-solid fa-book-open"></i>
-              </div>
-              <div class="stat-info">
-                <span class="stat-value">${getSemesterLabel(semester)}</span>
-                <span class="stat-label">Current Semester</span>
               </div>
             </div>
           </div>

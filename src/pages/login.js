@@ -118,6 +118,37 @@ export async function renderLoginPage() {
               <button class="btn btn-ghost" id="resend-otp-btn">Resend Code</button>
             </p>
           </div>
+
+          <!-- Reset Password Form (hidden, shown after OTP in reset mode) -->
+          <div id="reset-pw-section" style="display:none;" class="login-form-body">
+            <div class="otp-header text-center">
+              <div class="otp-icon"><i class="fa-solid fa-key"></i></div>
+              <h3>Set New Password</h3>
+              <p style="color:var(--text-secondary);margin-top:8px;">Enter your new password below</p>
+            </div>
+            <form id="reset-pw-form">
+              <div class="form-group">
+                <label class="form-label">New Password</label>
+                <div class="input-with-icon">
+                  <i class="fa-solid fa-lock"></i>
+                  <input type="password" class="form-input" id="reset-new-pw" placeholder="New password" required />
+                  <button type="button" class="password-toggle" id="reset-pw-toggle">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm Password</label>
+                <div class="input-with-icon">
+                  <i class="fa-solid fa-lock"></i>
+                  <input type="password" class="form-input" id="reset-confirm-pw" placeholder="Confirm password" required />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-block btn-lg" id="reset-pw-btn">
+                <i class="fa-solid fa-key"></i> Reset Password
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
@@ -201,10 +232,26 @@ function initLoginEvents() {
     formHeader.querySelector('p').textContent = 'Join the NEVIN NEXUS community';
   });
 
-  // Forgot password → switch to sign up tab
+  // Forgot password → switch to Reset Password mode
+  let resetMode = false;
   document.getElementById('forgot-password-link')?.addEventListener('click', () => {
+    resetMode = true;
+    tabSignup.textContent = 'Reset Password';
     tabSignup?.click();
-    showToast('Sign up again , then reset your password in Settings !', 'info');
+    // Update header and button for reset mode
+    formHeader.querySelector('h2').textContent = 'Reset Password';
+    formHeader.querySelector('p').textContent = 'Verify your email to reset your password';
+    const signupBtn = document.getElementById('signup-btn');
+    if (signupBtn) {
+      signupBtn.innerHTML = '<i class="fa-solid fa-key"></i> Reset Password';
+    }
+    showToast('Enter your email to receive a verification code.', 'info');
+  });
+
+  // When switching back to sign-in, exit reset mode
+  tabSignin?.addEventListener('click', () => {
+    resetMode = false;
+    tabSignup.textContent = 'Sign Up';
   });
 
   // Password toggles
@@ -339,8 +386,51 @@ function initLoginEvents() {
       showToast(error.message, 'error');
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Verify';
+    } else if (resetMode) {
+      // In reset mode: show the password reset form instead of proceeding
+      showToast('Email verified! Set your new password.', 'success');
+      otpSection.style.display = 'none';
+      document.getElementById('reset-pw-section').style.display = 'block';
+      formHeader.querySelector('h2').textContent = 'Set New Password';
+      formHeader.querySelector('p').textContent = 'Create a strong password for your account';
+      setupPasswordToggle('reset-pw-toggle', 'reset-new-pw');
     } else {
       showToast('Email verified! Setting up your profile...', 'success');
+    }
+  });
+
+  // Reset Password form submission
+  document.getElementById('reset-pw-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newPw = document.getElementById('reset-new-pw').value;
+    const confirmPw = document.getElementById('reset-confirm-pw').value;
+    const btn = document.getElementById('reset-pw-btn');
+
+    const { isValid, errors } = validatePassword(newPw);
+    if (!isValid) { showToast(errors[0], 'error'); return; }
+    if (newPw !== confirmPw) { showToast('Passwords do not match.', 'error'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Updating...';
+
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    if (error) {
+      showToast('Failed to reset password: ' + error.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-key"></i> Reset Password';
+    } else {
+      showToast('Password reset successfully! You can now sign in.', 'success');
+      // Sign out and redirect to sign-in tab
+      await supabase.auth.signOut();
+      resetMode = false;
+      tabSignup.textContent = 'Sign Up';
+      document.getElementById('reset-pw-section').style.display = 'none';
+      document.querySelector('.login-tabs').style.display = 'flex';
+      signinForm.style.display = 'block';
+      tabSignin.classList.add('active');
+      tabSignup.classList.remove('active');
+      formHeader.querySelector('h2').textContent = 'Welcome Back';
+      formHeader.querySelector('p').textContent = 'Sign in with your new password';
     }
   });
 

@@ -197,15 +197,19 @@ async function loadNotifications(profile) {
 
   if (broadcasts) {
     items.push(...broadcasts.map(n => ({
+      id: n.id,
       type: 'broadcast',
       title: n.title,
       message: n.message,
       time: n.created_at,
       icon: 'fa-bullhorn',
+      linkType: null,
+      linkId: null,
+      isRead: true,
     })));
   }
 
-  // 2. Load targeted notifications for this user
+  // 2. Load targeted notifications for this user (comment replies etc.)
   if (profile?.id) {
     const { data: targeted } = await supabase
       .from('notifications')
@@ -213,15 +217,19 @@ async function loadNotifications(profile) {
       .eq('target_user_id', profile.id)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     if (targeted) {
       items.push(...targeted.map(n => ({
+        id: n.id,
         type: 'reply',
         title: n.title,
         message: n.message,
         time: n.created_at,
-        icon: 'fa-reply',
+        icon: n.link_type === 'comment' ? 'fa-comment' : 'fa-reply',
+        linkType: n.link_type,
+        linkId: n.link_id,
+        isRead: n.is_read || false,
       })));
     }
   }
@@ -238,11 +246,15 @@ async function loadNotifications(profile) {
 
     if (replies) {
       items.push(...replies.map(f => ({
+        id: f.id,
         type: 'reply',
         title: 'Admin Reply',
         message: f.admin_reply,
         time: f.replied_at,
         icon: 'fa-reply',
+        linkType: null,
+        linkId: null,
+        isRead: true,
       })));
     }
   }
@@ -250,18 +262,49 @@ async function loadNotifications(profile) {
   // Sort by time
   items.sort((a, b) => new Date(b.time) - new Date(a.time));
 
+  // Count unread
+  const unreadCount = items.filter(n => !n.isRead).length;
+
   if (items.length > 0) {
-    dot.style.display = 'block';
-    list.innerHTML = items.map(n => `
-      <div class="notification-item ${n.type === 'reply' ? 'reply' : ''}">
+    if (unreadCount > 0) dot.style.display = 'block';
+    
+    list.innerHTML = items.map(n => {
+      const isClickable = n.linkType === 'comment' && n.linkId;
+      return `
+      <div class="notification-item ${n.type === 'reply' ? 'reply' : ''} ${!n.isRead ? 'unread' : ''} ${isClickable ? 'clickable' : ''}"
+           ${isClickable ? `data-notif-id="${n.id}" data-link-id="${n.linkId}" style="cursor:pointer;"` : ''}
+           >
         <div class="notification-icon"><i class="fa-solid ${n.icon}"></i></div>
         <div class="notification-content">
           <strong>${n.title}</strong>
+          ${!n.isRead ? '<span class="notif-unread-badge" style="display:inline-block;width:8px;height:8px;background:var(--primary);border-radius:50%;margin-left:6px;"></span>' : ''}
           <p>${n.message}</p>
-          <span class="notification-time">${new Date(n.time).toLocaleDateString()}</span>
+          <span class="notification-time">${getNotifTimeAgo(n.time)}</span>
         </div>
       </div>
-    `).join('');
+    `;}).join('');
+
+    // Add click handlers for deep-linked notifications
+    list.querySelectorAll('.notification-item.clickable').forEach(el => {
+      el.addEventListener('click', async () => {
+        const notifId = el.dataset.notifId;
+        const linkId = el.dataset.linkId;
+        
+        // Mark as read
+        if (notifId) {
+          await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
+          el.classList.remove('unread');
+          const badge = el.querySelector('.notif-unread-badge');
+          if (badge) badge.remove();
+        }
+
+        // Navigate to browse page with highlight param
+        const notifPanel = document.getElementById('notification-panel');
+        if (notifPanel) notifPanel.style.display = 'none';
+        
+        window.location.hash = `/browse?highlight=${linkId}`;
+      });
+    });
   } else {
     list.innerHTML = `
       <div class="empty-state" style="padding:2rem;">
@@ -270,6 +313,18 @@ async function loadNotifications(profile) {
       </div>
     `;
   }
+}
+
+function getNotifTimeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  const d = Math.floor(diff / 86400000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  if (d < 30) return `${d}d ago`;
+  return new Date(dateStr).toLocaleDateString();
 }
 
 async function loadAllNotifications(profile) {
