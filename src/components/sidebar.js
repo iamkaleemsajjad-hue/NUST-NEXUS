@@ -13,6 +13,7 @@ export function renderSidebar(profile) {
     { href: '/dashboard', icon: 'fa-house', label: 'Dashboard' },
     { href: '/browse', icon: 'fa-compass', label: 'Browse Resources' },
     { href: '/upload', icon: 'fa-cloud-arrow-up', label: 'Upload' },
+    { href: '/your-uploads', icon: 'fa-folder-open', label: 'Your Uploads' },
     { href: '/teachers', icon: 'fa-chalkboard-user', label: 'Teachers' },
     { href: '/ideas', icon: 'fa-lightbulb', label: 'Project Ideas' },
     { href: '/ask-questions', icon: 'fa-circle-question', label: 'Ask Questions' },
