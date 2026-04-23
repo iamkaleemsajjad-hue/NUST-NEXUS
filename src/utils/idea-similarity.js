@@ -1,5 +1,5 @@
 /**
- * NEVIN NEXUS — Idea Similarity Detection
+ * SCHOLAR NEXUS — Idea Similarity Detection
  * Normalized text hashing + Jaccard similarity for duplicate idea detection
  */
 

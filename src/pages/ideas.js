@@ -197,10 +197,19 @@ export async function renderIdeasPage() {
 async function loadIdeas(profile) {
   const container = document.getElementById('ideas-list');
   
-  const { data } = await supabase
-    .from('project_ideas')
-    .select('*, profiles(display_name), idea_ratings(user_id, rating)')
-    .order('created_at', { ascending: false });
+  const [ideasResult, roomsResult, myMembershipsResult] = await Promise.all([
+    supabase.from('project_ideas').select('*, profiles(display_name), idea_ratings(user_id, rating)').order('created_at', { ascending: false }),
+    supabase.from('idea_rooms').select('*, room_members(user_id)'),
+    supabase.from('room_members').select('room_id').eq('user_id', profile.id)
+  ]);
+
+  const data = ideasResult.data;
+  const rooms = roomsResult.data || [];
+  const myMemberships = (myMembershipsResult.data || []).map(m => m.room_id);
+
+  // Build room lookup by idea_id
+  const roomByIdea = {};
+  rooms.forEach(r => { roomByIdea[r.idea_id] = r; });
 
   if (!data || data.length === 0) {
     container.innerHTML = `
@@ -257,16 +266,28 @@ async function loadIdeas(profile) {
               <i class="fa-solid fa-user"></i> ${idea.profiles?.display_name || 'Anonymous'} •
               ${new Date(idea.created_at).toLocaleDateString()}
             </span>
-            <div style="display:flex; gap: 8px;">
-              ${window.isAdmin ? `
-                <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="event.stopPropagation(); window.deleteIdea('${idea.id}')" title="Delete Idea">
-                  <i class="fa-solid fa-trash"></i>
+            <div style="display:flex; gap: 6px; align-items:center;">
+                ${(() => {
+                  const er = roomByIdea[idea.id];
+                  if (er) {
+                    const mc = (er.room_members?.length || 0) + 1;
+                    const isMbr = myMemberships.includes(er.id) || er.owner_id === profile.id;
+                    if (isMbr) return '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window._enterRoom(\x27'+er.id+'\x27)"><i class="fa-solid fa-door-open"></i> Room ('+mc+')</button>';
+                    return '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window._requestJoin(\x27'+er.id+'\x27)"><i class="fa-solid fa-right-to-bracket"></i> Request</button>';
+                  } else if (idea.user_id === profile.id && idea.status === 'approved') {
+                    return '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window._createRoom(\x27'+idea.id+'\x27,\x27'+escapeHtml(idea.title)+'\x27)"><i class="fa-solid fa-plus"></i> Create Room</button>';
+                  }
+                  return '';
+                })()}
+                ${window.isAdmin ? `
+                  <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="event.stopPropagation(); window.deleteIdea('${idea.id}')" title="Delete Idea">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                ` : ''}
+                <button class="btn btn-ghost btn-sm" style="color:var(--primary);">
+                  Read More
                 </button>
-              ` : ''}
-              <button class="btn btn-ghost btn-sm" style="color:var(--primary);">
-                Read More
-              </button>
-            </div>
+              </div>
           </div>
         </div>
       `;
@@ -435,5 +456,42 @@ async function loadIdeas(profile) {
     document.getElementById('idea-modal').style.display = 'none';
   });
 
+  // ── Room Action Handlers ──
+  window._createRoom = async (ideaId, ideaTitle) => {
+    if (!confirm('Create a collaboration room for this idea?')) return;
+    const { data: newRoom, error } = await supabase.from('idea_rooms').insert({
+      idea_id: ideaId,
+      owner_id: profile.id,
+      name: ideaTitle + ' Room'
+    }).select().single();
+    if (error) { showToast('Failed to create room: ' + error.message, 'error'); return; }
+    // Add owner as member too
+    await supabase.from('room_members').insert({ room_id: newRoom.id, user_id: profile.id, role: 'owner' });
+    showToast('Room created! Entering...', 'success');
+    sessionStorage.setItem('current_room_id', newRoom.id);
+    router.navigate('/idea-room');
+  };
+
+  window._enterRoom = (roomId) => {
+    sessionStorage.setItem('current_room_id', roomId);
+    router.navigate('/idea-room');
+  };
+
+  window._requestJoin = async (roomId) => {
+    const message = prompt('Send a message with your request (optional):') || '';
+    const { error } = await supabase.from('room_join_requests').insert({
+      room_id: roomId,
+      user_id: profile.id,
+      message: message.substring(0, 200)
+    });
+    if (error) {
+      if (error.message.includes('duplicate')) { showToast('You already sent a request for this room', 'warning'); }
+      else { showToast('Failed: ' + error.message, 'error'); }
+      return;
+    }
+    showToast('Join request sent! The room owner will review it.', 'success');
+  };
+
   gsap.fromTo('.resource-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, stagger: 0.05, ease: 'power3.out' });
 }
+

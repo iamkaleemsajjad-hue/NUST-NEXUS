@@ -1,5 +1,5 @@
 /**
- * NEVIN NEXUS — Supabase Storage Client
+ * SCHOLAR NEXUS — Supabase Storage Client
  * Clean, reliable file upload/download/delete via native Supabase Storage.
  */
 

@@ -105,6 +105,7 @@ async function loadResources(profile, accessibleSemesters) {
       let query = supabase.from('uploads')
         .select('*, profiles(display_name), courses(name, code, semester)')
         .eq('status', 'approved')
+        .neq('is_deleted', true)
         .order('created_at', { ascending: false });
 
       if (semesterFilter) {

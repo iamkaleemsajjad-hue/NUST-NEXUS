@@ -1,5 +1,5 @@
 /**
- * NEVIN NEXUS — Configuration
+ * SCHOLAR NEXUS — Configuration
  *
  * SECURITY NOTES (OWASP):
  * - SUPABASE_ANON_KEY is a PUBLIC key (safe for client-side) — it only grants

@@ -11,6 +11,7 @@ import { renderBrowsePage } from './pages/browse.js';
 import { renderYourUploadsPage } from './pages/your-uploads.js';
 import { renderTeachersPage } from './pages/teachers.js';
 import { renderIdeasPage } from './pages/ideas.js';
+import { renderIdeaRoomPage } from './pages/idea-room.js';
 import { renderSettingsPage } from './pages/settings.js';
 import { renderFeedbackPage } from './pages/feedback.js';
 import { renderAskQuestionsPage } from './pages/ask-questions.js';
@@ -42,6 +43,7 @@ router.addRoute('/browse', renderBrowsePage);
 router.addRoute('/your-uploads', renderYourUploadsPage);
 router.addRoute('/teachers', renderTeachersPage);
 router.addRoute('/ideas', renderIdeasPage);
+router.addRoute('/idea-room', renderIdeaRoomPage);
 router.addRoute('/ask-questions', renderAskQuestionsPage);
 router.addRoute('/request-assessment', renderRequestAssessmentPage);
 router.addRoute('/settings', renderSettingsPage);
@@ -155,7 +157,7 @@ async function init() {
   // Listen for auth state changes
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_OUT') {
-      localStorage.removeItem('nevin_nexus_login_ts');
+      localStorage.removeItem('scholar_nexus_login_ts');
       router.navigate('/login');
     } else if (event === 'SIGNED_IN') {
       const user = session?.user;
@@ -177,7 +179,7 @@ async function init() {
                   <div style="font-size:3rem;margin-bottom:16px;">🚫</div>
                   <h2 style="color:var(--danger);margin-bottom:12px;">Account Banned</h2>
                   <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;margin-bottom:24px;">
-                    Your account has been permanently banned from NEVIN NEXUS.
+                    Your account has been permanently banned from SCHOLAR NEXUS.
                     ${banCheck.ban_reason ? `<br><br><strong>Reason:</strong> ${banCheck.ban_reason}` : ''}
                   </p>
                   <p style="color:var(--text-muted);font-size:0.8rem;">If you believe this is an error, contact the administrator.</p>
@@ -264,7 +266,7 @@ function initInactivityTracker() {
  */
 function initAbsoluteSessionTimeout() {
   const SESSION_MAX_MS = 2 * 60 * 60 * 1000; // 2 hours
-  const KEY = 'nevin_nexus_login_ts';
+  const KEY = 'scholar_nexus_login_ts';
 
   // On SIGNED_IN, store login timestamp (only if not already set)
   if (!localStorage.getItem(KEY)) {

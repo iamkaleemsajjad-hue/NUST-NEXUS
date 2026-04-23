@@ -16,7 +16,7 @@ export async function renderLoginPage() {
         <div class="login-hero-logo logo-3d-spin">
           ${getLogoSVG('hero-logo-svg', '180', '180', true)}
         </div>
-        <h1 class="login-hero-title">NEVIN NEXUS</h1>
+        <h1 class="login-hero-title">SCHOLAR NEXUS</h1>
         <p class="login-hero-tagline">Innovating the Future</p>
         <div class="hero-features">
           <div class="hero-feature"><i class="fa-solid fa-cloud-arrow-up"></i> Share Resources</div>
@@ -229,7 +229,7 @@ function initLoginEvents() {
     signinForm.style.display = 'none';
     otpSection.style.display = 'none';
     formHeader.querySelector('h2').textContent = 'Create Account';
-    formHeader.querySelector('p').textContent = 'Join the NEVIN NEXUS community';
+    formHeader.querySelector('p').textContent = 'Join the SCHOLAR NEXUS community';
   });
 
   // Forgot password → switch to Reset Password mode
@@ -327,7 +327,7 @@ function initLoginEvents() {
       console.error('Ban check error:', rpcErr);
       // Fallback: don't block if RPC fails due to connectivity, but log it
     } else if (isBanned) {
-      showToast('This email has been banned from NEVIN NEXUS. Registration is blocked.', 'error');
+      showToast('This email has been banned from SCHOLAR NEXUS. Registration is blocked.', 'error');
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create Account';
       return;
@@ -443,7 +443,7 @@ function initLoginEvents() {
     const { data: isBannedResend } = await supabase.rpc('is_email_banned', { p_email: pendingEmail });
 
     if (isBannedResend) {
-      showToast('This email has been banned from NEVIN NEXUS.', 'error');
+      showToast('This email has been banned from SCHOLAR NEXUS.', 'error');
       return;
     }
 

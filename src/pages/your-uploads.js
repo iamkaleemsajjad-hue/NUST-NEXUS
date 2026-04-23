@@ -44,11 +44,12 @@ async function loadUserUploads(userId) {
   const container = document.getElementById('your-uploads-list');
   if (!container) return;
 
-  // Fetch uploads with related counts
+  // Fetch uploads with related counts (exclude soft-deleted)
   const { data: uploads, error } = await supabase
     .from('uploads')
     .select('*, courses(name, code)')
     .eq('user_id', userId)
+    .neq('is_deleted', true)
     .order('created_at', { ascending: false });
 
   if (error || !uploads || uploads.length === 0) {
@@ -216,21 +217,21 @@ async function loadUserUploads(userId) {
     });
   });
 
-  // Delete handler
+  // Delete handler (soft-delete — hides from users, goes to admin for permanent deletion)
   window._deleteUpload = async (uploadId) => {
-    if (!confirm('Are you sure you want to delete this upload? This action cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this upload? It will be removed from public access and sent to admin for final review.')) return;
 
     const { error } = await supabase.from('uploads')
-      .update({ status: 'rejected' })
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
       .eq('id', uploadId)
       .eq('user_id', userId);
 
     if (error) {
-      showToast('Failed to delete upload.', 'error');
+      showToast('Failed to delete upload: ' + error.message, 'error');
       return;
     }
 
-    showToast('Upload deleted successfully.', 'success');
+    showToast('Upload removed. Admin will review for permanent deletion.', 'success');
     const card = document.getElementById(`upload-card-${uploadId}`);
     if (card) {
       gsap.to(card, { height: 0, opacity: 0, marginBottom: 0, padding: 0, duration: 0.4, ease: 'power2.in', onComplete: () => card.remove() });

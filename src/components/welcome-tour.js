@@ -4,7 +4,7 @@ import gsap from 'gsap';
 const TOUR_SLIDES = [
   {
     emoji: '🎓',
-    title: 'Welcome to NEVIN NEXUS!',
+    title: 'Welcome to SCHOLAR NEXUS!',
     description: 'Your all-in-one academic resource hub. Share notes, find resources, ask questions, and earn points — all within your NUST community.',
   },
   {

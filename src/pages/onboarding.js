@@ -26,7 +26,7 @@ export async function renderOnboardingPage() {
         <div class="onboarding-card" id="onboarding-card" style="background: var(--bg-deep); color: var(--text-primary); box-shadow: var(--shadow-lg);">
           <div class="onboarding-header">
             ${getLogoSVG('onboarding-logo', '140', '140')}
-            <h2 style="color: var(--text-primary); margin-top: 15px;">Welcome to <span class="text-gradient">NEVIN NEXUS</span></h2>
+            <h2 style="color: var(--text-primary); margin-top: 15px;">Welcome to <span class="text-gradient">SCHOLAR NEXUS</span></h2>
             <p style="color: var(--text-secondary);">Let's set up your profile</p>
           </div>
 
@@ -177,7 +177,7 @@ function initOnboarding(user, parsed) {
       return;
     }
 
-    showToast('Profile setup complete! Welcome to NEVIN NEXUS!', 'success');
+    showToast('Profile setup complete! Welcome to SCHOLAR NEXUS!', 'success');
     router.navigate('/dashboard');
   });
 }
@@ -207,16 +207,16 @@ function showTermsModal() {
         </button>
       </div>
       <div class="modal-body" style="max-height:450px;overflow-y:auto;line-height:1.7;">
-        <h4>🎓 NEVIN NEXUS Usage Agreement</h4>
+        <h4>🎓 SCHOLAR NEXUS Usage Agreement</h4>
         <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:16px;">Last updated: April 2026</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
 
         <p><strong>⚠️ DISCLAIMER</strong></p>
-        <p>NEVIN NEXUS is an independent platform. It is <strong>not affiliated with, endorsed by, sponsored by, or connected to any university, educational institution, or government body</strong> in any way.</p>
+        <p>SCHOLAR NEXUS is an independent platform. It is <strong>not affiliated with, endorsed by, sponsored by, or connected to any university, educational institution, or government body</strong> in any way.</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
 
         <p><strong>1. User-Generated Content — User Responsibility</strong></p>
-        <p>NEVIN NEXUS operates as a user-driven platform. All materials (including notes, assignments, quizzes, and academic resources) are uploaded by users.</p>
+        <p>SCHOLAR NEXUS operates as a user-driven platform. All materials (including notes, assignments, quizzes, and academic resources) are uploaded by users.</p>
         <p>By uploading content, you confirm that:</p>
         <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
           <li>You are the original creator or have the legal right to share the material</li>
@@ -224,7 +224,7 @@ function showTermsModal() {
           <li>The content does not violate any institutional policies, copyright laws, or confidentiality obligations</li>
           <li>You have removed all personal identifiers (such as name, student ID, or roll number)</li>
         </ul>
-        <p>NEVIN NEXUS does not claim ownership of user-submitted content and does not guarantee its accuracy, legality, or authenticity.</p>
+        <p>SCHOLAR NEXUS does not claim ownership of user-submitted content and does not guarantee its accuracy, legality, or authenticity.</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
 
         <p><strong>2. Academic Integrity & Intended Use</strong></p>
@@ -235,7 +235,7 @@ function showTermsModal() {
           <li>To comply with your institution’s academic integrity policies</li>
           <li>To use all materials responsibly as study aids only</li>
         </ul>
-        <p>NEVIN NEXUS is not responsible for how users utilize the content.</p>
+        <p>SCHOLAR NEXUS is not responsible for how users utilize the content.</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
 
         <p><strong>3. Prohibited Content 🚫</strong></p>
@@ -252,13 +252,13 @@ function showTermsModal() {
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
 
         <p><strong>4. Limitation of Liability</strong></p>
-        <p>NEVIN NEXUS functions solely as an intermediary for user-generated content.</p>
+        <p>SCHOLAR NEXUS functions solely as an intermediary for user-generated content.</p>
         <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
           <li>We do not actively monitor or verify all uploads</li>
           <li>We do not endorse any content shared by users</li>
           <li>We make no guarantees regarding the accuracy, completeness, or reliability of content</li>
         </ul>
-        <p>To the fullest extent permitted by law, NEVIN NEXUS shall not be liable for any direct, indirect, incidental, or consequential damages arising from:</p>
+        <p>To the fullest extent permitted by law, SCHOLAR NEXUS shall not be liable for any direct, indirect, incidental, or consequential damages arising from:</p>
         <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
           <li>User-submitted content</li>
           <li>Use or misuse of platform resources</li>
@@ -268,14 +268,14 @@ function showTermsModal() {
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
 
         <p><strong>5. Reporting & Content Removal Policy</strong></p>
-        <p>NEVIN NEXUS provides a reporting system that allows users to flag content that may:</p>
+        <p>SCHOLAR NEXUS provides a reporting system that allows users to flag content that may:</p>
         <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
           <li>Violate these Terms</li>
           <li>Infringe copyright or institutional policies</li>
           <li>Be inaccurate, misleading, or inappropriate</li>
         </ul>
         <p>By submitting a report, users agree to provide accurate information.</p>
-        <p>Upon review, NEVIN NEXUS may:</p>
+        <p>Upon review, SCHOLAR NEXUS may:</p>
         <ul style="margin-left:20px;margin-top:6px;margin-bottom:12px;">
           <li>Remove or restrict access to content</li>
           <li>Issue warnings or take action against user accounts</li>
@@ -295,12 +295,12 @@ function showTermsModal() {
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
 
         <p><strong>8. No Institutional Affiliation</strong></p>
-        <p>NEVIN NEXUS is an independent platform with no affiliation to any institution.</p>
+        <p>SCHOLAR NEXUS is an independent platform with no affiliation to any institution.</p>
         <p>All content is submitted by users, and responsibility for such content lies entirely with the individual who uploaded it.</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;" />
 
         <p><strong>9. Acceptance of Terms</strong></p>
-        <p>By accessing or using NEVIN NEXUS, you confirm that you have read, understood, and agreed to these Terms & Conditions.</p>
+        <p>By accessing or using SCHOLAR NEXUS, you confirm that you have read, understood, and agreed to these Terms & Conditions.</p>
         <p>If you do not agree, you must discontinue use of the platform.</p>
       </div>
     </div>

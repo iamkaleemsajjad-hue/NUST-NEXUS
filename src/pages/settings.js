@@ -87,7 +87,7 @@ export async function renderSettingsPage() {
               </button>
             ` : `
               <p style="color:var(--text-secondary); margin-bottom:var(--space-lg);">
-                Permanently delete your NEVIN NEXUS account and remove all your data (questions, answers, uploads).
+                Permanently delete your SCHOLAR NEXUS account and remove all your data (questions, answers, uploads).
                 <strong>Once requested, you enter a 14-day grace period. After 14 days, your data is irrevocably deleted.</strong>
               </p>
               <button class="btn btn-danger" id="btn-request-deletion">
