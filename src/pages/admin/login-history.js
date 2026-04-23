@@ -1,5 +1,5 @@
 /**
- * NEVIN NEXUS — Admin Login History Page
+ * SCHOLAR NEXUS — Admin Login History Page
  * Shows comprehensive login analytics for all users.
  */
 

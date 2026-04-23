@@ -17,12 +17,13 @@ export async function renderAdminDashboard() {
 
   // Get stats
   const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
-  const { count: totalUploads } = await supabase.from('uploads').select('*', { count: 'exact', head: true });
-  const { count: pendingUploads } = await supabase.from('uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: totalUploads } = await supabase.from('uploads').select('*', { count: 'exact', head: true }).neq('is_deleted', true);
+  const { count: pendingUploads } = await supabase.from('uploads').select('*', { count: 'exact', head: true }).eq('status', 'pending').neq('is_deleted', true);
   const { count: totalFeedback } = await supabase.from('feedback').select('*', { count: 'exact', head: true });
   const { count: totalTeachers } = await supabase.from('teachers').select('*', { count: 'exact', head: true });
   const { count: totalCourses } = await supabase.from('courses').select('*', { count: 'exact', head: true });
   const { count: pendingReports } = await supabase.from('upload_reports').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const { count: deletedUploads } = await supabase.from('uploads').select('*', { count: 'exact', head: true }).eq('is_deleted', true);
 
   app.innerHTML = `
     <div class="app-layout">
@@ -61,6 +62,10 @@ export async function renderAdminDashboard() {
               <div class="stat-icon" style="background:rgba(255,120,0,0.1);color:#ff7800;"><i class="fa-solid fa-flag"></i></div>
               <div class="stat-info"><span class="stat-value">${pendingReports || 0}</span><span class="stat-label">Pending Reports</span></div>
             </div>
+            <div class="stat-card card">
+              <div class="stat-icon" style="background:rgba(255,59,92,0.15);color:var(--danger);"><i class="fa-solid fa-trash-can"></i></div>
+              <div class="stat-info"><span class="stat-value">${deletedUploads || 0}</span><span class="stat-label">Deleted (Review)</span></div>
+            </div>
           </div>
 
           <!-- Quick Actions -->
@@ -81,6 +86,17 @@ export async function renderAdminDashboard() {
               <button class="btn btn-ghost btn-sm" onclick="window.loadPendingUploads()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
             </div>
             <div id="pending-uploads">
+              <div class="skeleton skeleton-card" style="height:100px;"></div>
+            </div>
+          </div>
+
+          <!-- User-Deleted Uploads (Soft-Deleted, awaiting admin review) -->
+          <div class="card" style="margin-top:var(--space-xl);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);">
+              <h3 style="margin:0;"><i class="fa-solid fa-trash-can" style="color:var(--danger);"></i> Deleted Uploads (User Requested)</h3>
+              <button class="btn btn-ghost btn-sm" onclick="window.loadDeletedUploads()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+            </div>
+            <div id="deleted-uploads">
               <div class="skeleton skeleton-card" style="height:100px;"></div>
             </div>
           </div>
@@ -138,6 +154,7 @@ export async function renderAdminDashboard() {
     `;
   }
 
+  // ── Pending Uploads ──
   window.loadPendingUploads = async function() {
     const list = document.getElementById('pending-uploads');
     list.innerHTML = '<div class="spinner"></div>';
@@ -146,6 +163,7 @@ export async function renderAdminDashboard() {
       .from('uploads')
       .select('*, profiles(display_name)')
       .eq('status', 'pending')
+      .neq('is_deleted', true)
       .order('created_at', { ascending: true });
       
     if (!pending || pending.length === 0) {
@@ -178,40 +196,116 @@ export async function renderAdminDashboard() {
   
   window.rejectUpload = async function(id) {
     if(!confirm('Reject this upload? No points will be awarded.')) return;
-    
     const { error } = await supabase.from('uploads').update({ status: 'rejected' }).eq('id', id);
-    if (error) {
-      showToast('Error rejecting upload', 'error');
-      return;
-    }
-    
+    if (error) { showToast('Error rejecting upload', 'error'); return; }
     showToast('Upload rejected.', 'success');
     window.loadPendingUploads();
   };
   
   window.approveUpload = async function(id, userId, type) {
     if(!confirm('Approve this upload and award points?')) return;
-    
-    // Import POINTS from config
     const { POINTS } = await import('../../config.js');
     const pointsAwarded = type === 'project' ? POINTS.UPLOAD_PROJECT : POINTS.UPLOAD_GENERAL;
-    
-    // Update status mapping
     const { error } = await supabase.from('uploads').update({ status: 'approved', points_awarded: pointsAwarded }).eq('id', id);
-    if (error) {
-      showToast('Error approving upload', 'error');
-      return;
-    }
-    
-    // Give user points
-    const { data: profile } = await supabase.from('profiles').select('points').eq('id', userId).single();
-    await supabase.from('profiles').update({ points: (profile?.points || 0) + pointsAwarded }).eq('id', userId);
-    
+    if (error) { showToast('Error approving upload', 'error'); return; }
+    const { data: uProfile } = await supabase.from('profiles').select('points').eq('id', userId).single();
+    await supabase.from('profiles').update({ points: (uProfile?.points || 0) + pointsAwarded }).eq('id', userId);
     showToast('Upload approved!', 'success');
     window.loadPendingUploads();
   };
 
   window.loadPendingUploads();
+
+  // ── Deleted Uploads (Soft-Deleted by users, awaiting admin review) ──
+  window.loadDeletedUploads = async function() {
+    const list = document.getElementById('deleted-uploads');
+    list.innerHTML = '<div class="spinner"></div>';
+
+    const { data: deleted } = await supabase
+      .from('uploads')
+      .select('*, profiles(display_name)')
+      .eq('is_deleted', true)
+      .order('deleted_at', { ascending: false });
+
+    if (!deleted || deleted.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No deleted uploads awaiting review. All clean! ✅</p></div>';
+      return;
+    }
+
+    list.innerHTML = deleted.map(item => `
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;margin-bottom:8px;background:rgba(255,59,92,0.03);border:1px solid rgba(255,59,92,0.15);" id="deleted-card-${item.id}">
+        <div style="flex:1;min-width:0;padding-right:12px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span class="badge" style="background:rgba(255,59,92,0.15);color:var(--danger);font-size:0.7rem;">
+              <i class="fa-solid fa-trash-can"></i> User Deleted
+            </span>
+            <span class="badge" style="background:rgba(255,184,0,0.1);color:var(--warning);font-size:0.7rem;">
+              ${item.status?.toUpperCase() || 'PENDING'}
+            </span>
+          </div>
+          <h4 style="margin-bottom:4px;">${escapeHtml(item.title)}</h4>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;line-height:1.5;">
+            <strong>By:</strong> ${escapeHtml(item.profiles?.display_name || 'Unknown')} |
+            <strong>Type:</strong> ${item.type} |
+            <strong>Points:</strong> ${item.points_awarded || 0}<br>
+            <strong>Uploaded:</strong> ${new Date(item.created_at).toLocaleDateString()} |
+            <strong>Deleted:</strong> ${item.deleted_at ? new Date(item.deleted_at).toLocaleDateString() : '—'}
+          </p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          ${item.file_url ? `<a href="${item.file_url}" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-eye"></i> View</a>` : ''}
+          <button class="btn btn-primary btn-sm" onclick="window.restoreUpload('${item.id}')" title="Restore upload">
+            <i class="fa-solid fa-arrow-rotate-left"></i> Restore
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="window.permanentlyDeleteUpload('${item.id}', '${item.file_url || ''}', '${item.user_id}', ${item.points_awarded || 0})">
+            <i class="fa-solid fa-fire"></i> Delete Forever
+          </button>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  window.restoreUpload = async function(id) {
+    if (!confirm('Restore this upload? It will become visible to users again.')) return;
+    const { error } = await supabase.from('uploads').update({ is_deleted: false, deleted_at: null }).eq('id', id);
+    if (error) { showToast('Error restoring: ' + error.message, 'error'); return; }
+    showToast('Upload restored successfully!', 'success');
+    window.loadDeletedUploads();
+  };
+
+  window.permanentlyDeleteUpload = async function(id, fileUrl, uploaderId, pointsAwarded) {
+    if (!confirm('⚠️ PERMANENTLY delete this upload? This cannot be undone.')) return;
+
+    // Delete from storage
+    if (fileUrl) {
+      try {
+        const urlObj = new URL(fileUrl);
+        const pathParts = urlObj.pathname.split('/public/uploads/');
+        if (pathParts.length > 1) {
+          const filePath = decodeURIComponent(pathParts[1]);
+          await supabase.storage.from('uploads').remove([filePath]);
+        }
+      } catch (e) { console.warn('Could not parse file URL for storage deletion', e); }
+    }
+
+    const { error: delError } = await supabase.from('uploads').delete().eq('id', id);
+    if (delError) { showToast('Error deleting: ' + delError.message, 'error'); return; }
+
+    let penaltyMsg = '';
+    if (uploaderId && pointsAwarded > 0) {
+      const { data: uploaderProfile } = await supabase.from('profiles').select('points, display_name').eq('id', uploaderId).single();
+      if (uploaderProfile) {
+        const newPoints = (uploaderProfile.points || 0) - pointsAwarded;
+        await supabase.from('profiles').update({ points: newPoints }).eq('id', uploaderId);
+        penaltyMsg = ` | -${pointsAwarded} pts from ${escapeHtml(uploaderProfile.display_name)}`;
+      }
+    }
+
+    showToast('Upload permanently deleted' + penaltyMsg, 'success');
+    window.loadDeletedUploads();
+  };
+
+  window.loadDeletedUploads();
 
   // ── Reported Uploads ──
   window.loadReportedUploads = async function() {
@@ -262,18 +356,14 @@ export async function renderAdminDashboard() {
   window.dismissReport = async function(reportId) {
     if (!confirm('Dismiss this report? The resource will remain available.')) return;
     const { error } = await supabase.from('upload_reports').update({ status: 'dismissed' }).eq('id', reportId);
-    if (error) {
-      showToast('Error dismissing report: ' + error.message, 'error');
-      return;
-    }
+    if (error) { showToast('Error dismissing report: ' + error.message, 'error'); return; }
     showToast('Report dismissed', 'success');
     window.loadReportedUploads();
   };
 
   window.deleteReportedUpload = async function(reportId, uploadId, fileUrl, uploaderId, pointsAwarded) {
-    if (!confirm('Delete this resource AND deduct points from the uploader? This cannot be undone.')) return;
+    if (!confirm('Delete this resource AND deduct points? This cannot be undone.')) return;
 
-    // Delete from storage
     try {
       const urlObj = new URL(fileUrl);
       const pathParts = urlObj.pathname.split('/public/uploads/');
@@ -281,38 +371,20 @@ export async function renderAdminDashboard() {
         const filePath = decodeURIComponent(pathParts[1]);
         await supabase.storage.from('uploads').remove([filePath]);
       }
-    } catch (e) {
-      console.warn('Could not parse file URL for storage deletion', e);
-    }
+    } catch (e) { console.warn('Could not parse file URL for storage deletion', e); }
 
-    // Delete the upload record (cascade will remove the report too)
     const { error: delError } = await supabase.from('uploads').delete().eq('id', uploadId);
-    if (delError) {
-      showToast('Error deleting resource: ' + delError.message, 'error');
-      return;
-    }
+    if (delError) { showToast('Error deleting resource: ' + delError.message, 'error'); return; }
 
-    // ── Point Penalty: deduct points from uploader (allow negative) ──
     let penaltyMsg = '';
     if (uploaderId && pointsAwarded > 0) {
-      const { data: uploaderProfile } = await supabase
-        .from('profiles')
-        .select('points, display_name')
-        .eq('id', uploaderId)
-        .single();
-
+      const { data: uploaderProfile } = await supabase.from('profiles').select('points, display_name').eq('id', uploaderId).single();
       if (uploaderProfile) {
         const currentPoints = uploaderProfile.points || 0;
         const newPoints = currentPoints - pointsAwarded;
-        const { error: pointsError } = await supabase
-          .from('profiles')
-          .update({ points: newPoints })
-          .eq('id', uploaderId);
-
+        const { error: pointsError } = await supabase.from('profiles').update({ points: newPoints }).eq('id', uploaderId);
         if (!pointsError) {
           penaltyMsg = ` | Penalty: -${pointsAwarded} pts from ${escapeHtml(uploaderProfile.display_name)} (${currentPoints} → ${newPoints})`;
-        } else {
-          penaltyMsg = ' | ⚠️ Could not deduct points: ' + pointsError.message;
         }
       }
     }
@@ -323,9 +395,10 @@ export async function renderAdminDashboard() {
 
   window.loadReportedUploads();
 
-  // Real-time: auto-refresh pending uploads when any upload changes
+  // Real-time: auto-refresh when uploads change
   subscribeToTable('admin-pending-uploads', 'uploads', null, (payload) => {
     console.log('[realtime] uploads changed:', payload.eventType);
     window.loadPendingUploads();
+    window.loadDeletedUploads();
   });
 }

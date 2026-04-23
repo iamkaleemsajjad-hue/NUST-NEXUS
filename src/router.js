@@ -1,5 +1,5 @@
 /**
- * Simple hash-based SPA Router for NEVIN NEXUS
+ * Simple hash-based SPA Router for SCHOLAR NEXUS
  */
 export class Router {
   constructor() {

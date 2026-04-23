@@ -1,5 +1,5 @@
 /**
- * NEVIN NEXUS — Supabase Realtime Subscription Manager
+ * SCHOLAR NEXUS — Supabase Realtime Subscription Manager
  * Centralized real-time subscription handling with auto-cleanup.
  */
 

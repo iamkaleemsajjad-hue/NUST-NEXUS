@@ -1,5 +1,5 @@
 /**
- * NEVIN NEXUS — Storj S3-Compatible Storage Client
+ * SCHOLAR NEXUS — Storj S3-Compatible Storage Client
  * Uploads files via Supabase Edge Function proxy to keep credentials server-side
  */
 
