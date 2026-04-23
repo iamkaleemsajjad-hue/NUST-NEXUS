@@ -192,6 +192,9 @@ async function init() {
         try { await recordLogin(user.id); } catch (e) { console.warn('recordLogin:', e); }
       }
       if (user && window.location.hash === '#/login') {
+        // Skip redirect if user is in password reset mode
+        if (window.__resetPasswordMode) return;
+        
         const { data: profile } = await supabase
           .from('profiles')
           .select('onboarding_complete, role')

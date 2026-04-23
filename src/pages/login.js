@@ -66,7 +66,7 @@ export async function renderLoginPage() {
 
             <div style="text-align:center;margin-top:var(--space-md);">
               <a href="javascript:void(0)" id="forgot-password-link" style="color:var(--text-secondary);font-size:0.8125rem;text-decoration:underline;cursor:pointer;">
-                <i class="fa-solid fa-key" style="margin-right:4px;"></i>Forgot password? Sign up again &amp; reset in Settings
+                <i class="fa-solid fa-key" style="margin-right:4px;"></i>Forgot Password?
               </a>
             </div>
 
@@ -236,21 +236,23 @@ function initLoginEvents() {
   let resetMode = false;
   document.getElementById('forgot-password-link')?.addEventListener('click', () => {
     resetMode = true;
+    window.__resetPasswordMode = true;
     tabSignup.textContent = 'Reset Password';
     tabSignup?.click();
     // Update header and button for reset mode
     formHeader.querySelector('h2').textContent = 'Reset Password';
-    formHeader.querySelector('p').textContent = 'Verify your email to reset your password';
+    formHeader.querySelector('p').textContent = 'Enter your email to receive a verification code';
     const signupBtn = document.getElementById('signup-btn');
     if (signupBtn) {
       signupBtn.innerHTML = '<i class="fa-solid fa-key"></i> Reset Password';
     }
-    showToast('Enter your email to receive a verification code.', 'info');
+    showToast('Enter your registered email to reset your password.', 'info');
   });
 
   // When switching back to sign-in, exit reset mode
   tabSignin?.addEventListener('click', () => {
     resetMode = false;
+    window.__resetPasswordMode = false;
     tabSignup.textContent = 'Sign Up';
   });
 
@@ -423,6 +425,7 @@ function initLoginEvents() {
       // Sign out and redirect to sign-in tab
       await supabase.auth.signOut();
       resetMode = false;
+      window.__resetPasswordMode = false;
       tabSignup.textContent = 'Sign Up';
       document.getElementById('reset-pw-section').style.display = 'none';
       document.querySelector('.login-tabs').style.display = 'flex';
