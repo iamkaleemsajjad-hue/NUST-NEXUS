@@ -273,11 +273,13 @@ async function loadIdeas(profile) {
                     const mc = (er.room_members?.length || 0) + 1;
                     const isMbr = myMemberships.includes(er.id) || er.owner_id === profile.id;
                     if (isMbr) return '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window._enterRoom(\x27'+er.id+'\x27)"><i class="fa-solid fa-door-open"></i> Room ('+mc+')</button>';
-                    return '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window._requestJoin(\x27'+er.id+'\x27)"><i class="fa-solid fa-right-to-bracket"></i> Request</button>';
-                  } else if (idea.user_id === profile.id && idea.status === 'approved') {
-                    return '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window._createRoom(\x27'+idea.id+'\x27,\x27'+escapeHtml(idea.title)+'\x27)"><i class="fa-solid fa-plus"></i> Create Room</button>';
+                    return '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window._requestJoin(\x27'+er.id+'\x27)"><i class="fa-solid fa-right-to-bracket"></i> Request Join</button>';
+                  } else if (idea.user_id === profile.id) {
+                    if (idea.status === 'approved') return '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window._createRoom(\x27'+idea.id+'\x27,\x27'+escapeHtml(idea.title)+'\x27)"><i class="fa-solid fa-plus"></i> Create Room</button>';
+                    return '<button class="btn btn-ghost btn-sm" disabled title="Idea must be approved first"><i class="fa-solid fa-plus"></i> Create Room</button>';
+                  } else {
+                    return '<button class="btn btn-ghost btn-sm" disabled title="The author has not created a room yet"><i class="fa-solid fa-users-slash"></i> No Room</button>';
                   }
-                  return '';
                 })()}
                 ${window.isAdmin ? `
                   <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="event.stopPropagation(); window.deleteIdea('${idea.id}')" title="Delete Idea">
