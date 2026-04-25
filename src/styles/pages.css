@@ -2632,9 +2632,12 @@
 }
 /* Full-width room page override */
 .room-page-container {
-  padding: 0 !important; max-width: 100% !important;
-  height: calc(100vh - var(--header-height)) !important;
-  display: flex; flex-direction: column;
+  padding: 0 !important; max-width: 100% !important; margin: 0 !important;
+  height: calc(100vh - var(--header-height, 64px)) !important;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.room-page-container .room-body {
+  flex: 1 1 0; min-height: 0; overflow: hidden;
 }
 
 /* Responsive */

@@ -47,7 +47,7 @@ export async function renderIdeaRoomPage() {
               <button class="btn btn-ghost btn-sm" onclick="location.hash='#/ideas'"><i class="fa-solid fa-arrow-left"></i></button>
               <div>
                 <h3 style="margin:0;font-size:1rem;">${escapeHtml(room.name)}</h3>
-                <span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(room.project_ideas?.title || '')} · ${(members?.length || 0) + 1}/${room.max_members} members</span>
+                <span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(room.project_ideas?.title || '')} · ${new Set([room.owner_id, ...(members||[]).map(m=>m.user_id)]).size}/${room.max_members} members</span>
               </div>
             </div>
             <div class="room-topbar-right">
@@ -61,7 +61,7 @@ export async function renderIdeaRoomPage() {
             <!-- Members Sidebar -->
             <div class="room-members-panel" id="members-panel">
               <h4 style="padding:12px 16px;margin:0;border-bottom:1px solid var(--border);font-size:0.85rem;">
-                <i class="fa-solid fa-users"></i> Members (${(members?.length || 0) + 1})
+                <i class="fa-solid fa-users"></i> Members (${new Set([room.owner_id, ...(members||[]).map(m=>m.user_id)]).size})
               </h4>
               <div class="room-members-list" id="members-list"></div>
               ${isOwner ? `
@@ -140,10 +140,11 @@ export async function renderIdeaRoomPage() {
 
   initSidebar(); initHeader(profile); setBreadcrumb('Idea Room');
 
-  // Build peer name lookup from members list
+  // Build peer name lookup from members list (include self)
   const _peerNames = {};
   _peerNames[room.owner_id] = room.profiles?.display_name || 'Owner';
   (members || []).forEach(m => { _peerNames[m.user_id] = m.profiles?.display_name || 'Member'; });
+  _peerNames[user.id] = profile.display_name || 'You';
 
   // ── Render Members ──
   function renderMembers() {
@@ -230,7 +231,11 @@ export async function renderIdeaRoomPage() {
     .on('broadcast', { event: 'webrtc-signal' }, ({ payload: sig }) => {
       if (sig.target === user.id || sig.target === 'all') handleWebRTCSignal(sig);
     })
-    .subscribe();
+    .subscribe(async () => {
+      // Announce our name to all peers so everyone knows who we are
+      _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal',
+        payload: { type: 'announce-name', from: user.id, name: profile.display_name || 'User', target: 'all' } });
+    });
 
   await loadMessages();
 
@@ -426,10 +431,25 @@ export async function renderIdeaRoomPage() {
     } else if (sig.type === 'ice-candidate') {
       const pc = _peerConnections[sig.from];
       if (pc) await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));
+    } else if (sig.type === 'announce-name') {
+      // Learn other peers' display names
+      if (sig.from && sig.name) _peerNames[sig.from] = sig.name;
+      // Update any existing video/screen labels
+      const lbl = document.querySelector(`#video-${sig.from} .room-video-label`);
+      if (lbl) lbl.textContent = sig.name;
     } else if (sig.type === 'screen-share' && sig.from !== user.id) {
-      // Receiver: create screen peer connection and send answer
-      const pc = await createScreenPeerConnection(sig.from, false);
-      // Sender will send an offer next
+      // Receiver: tell the sharer we are ready to receive
+      await createScreenPeerConnection(sig.from, false);
+      _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal',
+        payload: { type: 'screen-ready', from: user.id, target: sig.from } });
+    } else if (sig.type === 'screen-ready' && sig.from !== user.id) {
+      // Sharer: a viewer is ready — send them a screen offer
+      if (!_screenStream) return;
+      const pc = await createScreenPeerConnection(sig.from, true);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal',
+        payload: { type: 'screen-offer', offer, from: user.id, target: sig.from } });
     } else if (sig.type === 'screen-offer') {
       const pc = await createScreenPeerConnection(sig.from, false);
       await pc.setRemoteDescription(new RTCSessionDescription(sig.offer));
@@ -488,23 +508,8 @@ export async function renderIdeaRoomPage() {
       addScreenElement(user.id, _screenStream);
       document.getElementById('start-screen-btn').style.display = 'none';
       document.getElementById('stop-screen-btn').style.display = '';
-      // Broadcast screen-share signal
+      // Broadcast that we're sharing — viewers will respond with screen-ready
       _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-share', from: user.id, target: 'all' } });
-      // Log screen share event to session
-      if (_currentSessionId) {
-        const { data: sess } = await supabase.from('room_sessions').select('screen_share_events').eq('id', _currentSessionId).single();
-        const events = sess?.screen_share_events || [];
-        events.push({ user_id: user.id, display_name: _peerNames[user.id] || 'Unknown', started_at: new Date().toISOString() });
-        await supabase.from('room_sessions').update({ screen_share_events: events }).eq('id', _currentSessionId);
-      }
-      // Create screen peer connections to all known members
-      const allPeerIds = Object.keys(_peerNames).filter(id => id !== user.id);
-      for (const peerId of allPeerIds) {
-        const pc = await createScreenPeerConnection(peerId, true);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-offer', offer, from: user.id, target: peerId } });
-      }
       _screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
     } catch (e) {
       showToast('Screen share cancelled', 'warning');
