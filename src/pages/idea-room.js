@@ -47,7 +47,7 @@ export async function renderIdeaRoomPage() {
               <button class="btn btn-ghost btn-sm" onclick="location.hash='#/ideas'"><i class="fa-solid fa-arrow-left"></i></button>
               <div>
                 <h3 style="margin:0;font-size:1rem;">${escapeHtml(room.name)}</h3>
-                <span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(room.project_ideas?.title || '')} · ${new Set([room.owner_id, ...(members||[]).map(m=>m.user_id)]).size}/${room.max_members} members</span>
+                <span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(room.project_ideas?.title || '')} · ${members?.length || 0}/${room.max_members} members</span>
               </div>
             </div>
             <div class="room-topbar-right">
@@ -61,7 +61,7 @@ export async function renderIdeaRoomPage() {
             <!-- Members Sidebar -->
             <div class="room-members-panel" id="members-panel">
               <h4 style="padding:12px 16px;margin:0;border-bottom:1px solid var(--border);font-size:0.85rem;">
-                <i class="fa-solid fa-users"></i> Members (${new Set([room.owner_id, ...(members||[]).map(m=>m.user_id)]).size})
+                <i class="fa-solid fa-users"></i> Members (${members?.length || 0})
               </h4>
               <div class="room-members-list" id="members-list"></div>
               ${isOwner ? `
@@ -150,15 +150,18 @@ export async function renderIdeaRoomPage() {
   function renderMembers() {
     const list = document.getElementById('members-list');
     if (!list) return;
-    const ownerEntry = `<div class="room-member-item"><div class="room-member-avatar">${(room.profiles?.display_name || 'O')[0].toUpperCase()}</div><div><span class="room-member-name">${escapeHtml(room.profiles?.display_name || 'Owner')}</span><span class="badge badge-primary" style="font-size:0.6rem;padding:1px 6px;margin-left:4px;">Owner</span></div></div>`;
-    const memberEntries = (members || []).filter(m => m.user_id !== room.owner_id).map(m => `
-      <div class="room-member-item">
-        <div class="room-member-avatar">${(m.profiles?.display_name || '?')[0].toUpperCase()}</div>
-        <div style="flex:1;"><span class="room-member-name">${escapeHtml(m.profiles?.display_name || 'Member')}</span></div>
-        ${isOwner ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:4px;" onclick="window._removeMember('${m.user_id}')" title="Remove"><i class="fa-solid fa-user-minus"></i></button>` : ''}
-      </div>
-    `).join('');
-    list.innerHTML = ownerEntry + memberEntries;
+    const entries = (members || []).map(m => {
+      const name = m.profiles?.display_name || m.profiles?.email?.split('@')[0] || 'Member';
+      const isOwnerMember = m.user_id === room.owner_id;
+      return `
+        <div class="room-member-item">
+          <div class="room-member-avatar">${name[0].toUpperCase()}</div>
+          <div style="flex:1;"><span class="room-member-name">${escapeHtml(name)}</span>${isOwnerMember ? '<span class="badge badge-primary" style="font-size:0.6rem;padding:1px 6px;margin-left:4px;">Owner</span>' : ''}</div>
+          ${isOwner && !isOwnerMember ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:4px;" onclick="window._removeMember('${m.user_id}')" title="Remove"><i class="fa-solid fa-user-minus"></i></button>` : ''}
+        </div>
+      `;
+    }).join('');
+    list.innerHTML = entries;
   }
   renderMembers();
 
