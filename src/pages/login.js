@@ -14,7 +14,7 @@ export async function renderLoginPage() {
       <!-- Left Side Logo Display -->
       <div class="login-left">
         <div class="login-hero-logo logo-3d-spin">
-          ${getLogoSVG('hero-logo-svg', '180', '180', true)}
+          ${getLogoSVG('hero-logo-svg', '180', '180')}
         </div>
         <h1 class="login-hero-title">SCHOLAR NEXUS</h1>
         <p class="login-hero-tagline">Innovating the Future</p>

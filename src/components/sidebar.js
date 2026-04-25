@@ -44,6 +44,7 @@ export function renderSidebar(profile) {
     { href: '/admin/delete-requests', icon: 'fa-user-xmark', label: 'Deletion Requests' },
     { href: '/admin/ban-users', icon: 'fa-ban', label: 'Ban Users' },
     { href: '/admin/give-points', icon: 'fa-coins', label: 'Give Points' },
+    { href: '/admin/room-sessions', icon: 'fa-video', label: 'Room Sessions' },
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;
@@ -54,7 +55,7 @@ export function renderSidebar(profile) {
       <!-- Sidebar Header -->
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          ${getLogoSVG('sidebar-logo-img', '36', '36', false, currentHash === '/dashboard')}
+          ${getLogoSVG('sidebar-logo-img', '36', '36')}
           <span class="sidebar-brand">SCHOLAR NEXUS</span>
         </div>
       </div>

@@ -11,6 +11,8 @@ let _roomChannel = null;
 let _peerConnections = {};
 let _localStream = null;
 let _screenStream = null;
+let _screenPeerConnections = {};
+let _currentSessionId = null;
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
 
@@ -38,7 +40,7 @@ export async function renderIdeaRoomPage() {
       ${renderSidebar(profile)}
       <div class="main-content">
         ${renderHeader(profile)}
-        <div class="page-container" style="padding-bottom:0;height:calc(100vh - 64px);display:flex;flex-direction:column;">
+        <div class="page-container room-page-container">
           <!-- Room Header -->
           <div class="room-topbar">
             <div class="room-topbar-left">
@@ -104,6 +106,7 @@ export async function renderIdeaRoomPage() {
                 <div class="room-call-controls">
                   <button class="btn btn-primary" id="start-screen-btn"><i class="fa-solid fa-display"></i> Share Screen</button>
                   <button class="btn btn-danger" id="stop-screen-btn" style="display:none;"><i class="fa-solid fa-stop"></i> Stop Sharing</button>
+                  <button class="btn btn-secondary" id="screen-mic-btn" style="display:none;"><i class="fa-solid fa-microphone"></i> Mic</button>
                 </div>
                 <div class="room-screen-view" id="screen-view">
                   <div class="empty-state"><i class="fa-solid fa-display"></i><p>No one is sharing their screen</p></div>
@@ -136,6 +139,11 @@ export async function renderIdeaRoomPage() {
   `;
 
   initSidebar(); initHeader(profile); setBreadcrumb('Idea Room');
+
+  // Build peer name lookup from members list
+  const _peerNames = {};
+  _peerNames[room.owner_id] = room.profiles?.display_name || 'Owner';
+  (members || []).forEach(m => { _peerNames[m.user_id] = m.profiles?.display_name || 'Member'; });
 
   // ── Render Members ──
   function renderMembers() {
@@ -220,7 +228,7 @@ export async function renderIdeaRoomPage() {
       container.scrollTop = container.scrollHeight;
     })
     .on('broadcast', { event: 'webrtc-signal' }, ({ payload: sig }) => {
-      if (sig.target === user.id) handleWebRTCSignal(sig);
+      if (sig.target === user.id || sig.target === 'all') handleWebRTCSignal(sig);
     })
     .subscribe();
 
@@ -332,7 +340,7 @@ export async function renderIdeaRoomPage() {
     wrapper.appendChild(video);
     const label = document.createElement('div');
     label.className = 'room-video-label';
-    label.textContent = isLocal ? 'You' : 'Peer';
+    label.textContent = isLocal ? 'You' : (_peerNames[peerId] || 'Peer');
     wrapper.appendChild(label);
     grid.appendChild(wrapper);
   }
@@ -358,6 +366,47 @@ export async function renderIdeaRoomPage() {
     return pc;
   }
 
+  // Separate peer connection for screen sharing
+  async function createScreenPeerConnection(peerId, isSender) {
+    const key = `screen-${peerId}`;
+    if (_screenPeerConnections[key]) return _screenPeerConnections[key];
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    _screenPeerConnections[key] = pc;
+    if (isSender && _screenStream) {
+      _screenStream.getTracks().forEach(t => pc.addTrack(t, _screenStream));
+    }
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-ice', candidate: e.candidate, from: user.id, target: peerId } });
+      }
+    };
+    pc.ontrack = (e) => {
+      addScreenElement(peerId, e.streams[0]);
+    };
+    return pc;
+  }
+
+  function addScreenElement(peerId, stream) {
+    const view = document.getElementById('screen-view');
+    const existingEmpty = view.querySelector('.empty-state');
+    if (existingEmpty) existingEmpty.remove();
+    let wrapper = document.getElementById(`screen-${peerId}`);
+    if (wrapper) { wrapper.querySelector('video').srcObject = stream; return; }
+    wrapper = document.createElement('div');
+    wrapper.className = 'room-screen-item';
+    wrapper.id = `screen-${peerId}`;
+    const vid = document.createElement('video');
+    vid.srcObject = stream;
+    vid.autoplay = true;
+    vid.playsInline = true;
+    wrapper.appendChild(vid);
+    const label = document.createElement('div');
+    label.className = 'room-screen-label';
+    label.textContent = peerId === user.id ? 'You' : (_peerNames[peerId] || 'Peer');
+    wrapper.appendChild(label);
+    view.appendChild(wrapper);
+  }
+
   async function handleWebRTCSignal(sig) {
     if (sig.type === 'join-call' && _inCall && sig.from !== user.id) {
       const pc = await createPeerConnection(sig.from);
@@ -365,6 +414,7 @@ export async function renderIdeaRoomPage() {
       await pc.setLocalDescription(offer);
       _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'offer', offer, from: user.id, target: sig.from } });
     } else if (sig.type === 'offer') {
+      if (!_inCall) await startCall(true);
       const pc = await createPeerConnection(sig.from);
       await pc.setRemoteDescription(new RTCSessionDescription(sig.offer));
       const answer = await pc.createAnswer();
@@ -376,12 +426,31 @@ export async function renderIdeaRoomPage() {
     } else if (sig.type === 'ice-candidate') {
       const pc = _peerConnections[sig.from];
       if (pc) await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));
-    } else if (sig.type === 'screen-share') {
-      const view = document.getElementById('screen-view');
-      view.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">Receiving screen share...</p>';
+    } else if (sig.type === 'screen-share' && sig.from !== user.id) {
+      // Receiver: create screen peer connection and send answer
+      const pc = await createScreenPeerConnection(sig.from, false);
+      // Sender will send an offer next
+    } else if (sig.type === 'screen-offer') {
+      const pc = await createScreenPeerConnection(sig.from, false);
+      await pc.setRemoteDescription(new RTCSessionDescription(sig.offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-answer', answer, from: user.id, target: sig.from } });
+    } else if (sig.type === 'screen-answer') {
+      const pc = _screenPeerConnections[`screen-${sig.from}`];
+      if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sig.answer));
+    } else if (sig.type === 'screen-ice') {
+      const pc = _screenPeerConnections[`screen-${sig.from}`];
+      if (pc) await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));
     } else if (sig.type === 'screen-stop') {
+      const el = document.getElementById(`screen-${sig.from}`);
+      if (el) el.remove();
+      const key = `screen-${sig.from}`;
+      if (_screenPeerConnections[key]) { _screenPeerConnections[key].close(); delete _screenPeerConnections[key]; }
       const view = document.getElementById('screen-view');
-      view.innerHTML = '<div class="empty-state"><i class="fa-solid fa-display"></i><p>No one is sharing their screen</p></div>';
+      if (!view.querySelector('.room-screen-item')) {
+        view.innerHTML = '<div class="empty-state"><i class="fa-solid fa-display"></i><p>No one is sharing their screen</p></div>';
+      }
     }
   }
 
@@ -415,37 +484,92 @@ export async function renderIdeaRoomPage() {
   // ── Screen Sharing ──
   document.getElementById('start-screen-btn')?.addEventListener('click', async () => {
     try {
-      _screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      const view = document.getElementById('screen-view');
-      view.innerHTML = '';
-      const vid = document.createElement('video');
-      vid.srcObject = _screenStream;
-      vid.autoplay = true;
-      vid.playsInline = true;
-      vid.style.cssText = 'width:100%;max-height:70vh;border-radius:8px;background:#000;';
-      view.appendChild(vid);
+      _screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      addScreenElement(user.id, _screenStream);
       document.getElementById('start-screen-btn').style.display = 'none';
       document.getElementById('stop-screen-btn').style.display = '';
+      // Broadcast screen-share signal
       _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-share', from: user.id, target: 'all' } });
-      // Share screen tracks to all peers
-      Object.entries(_peerConnections).forEach(([, pc]) => {
-        _screenStream.getTracks().forEach(t => pc.addTrack(t, _screenStream));
-      });
+      // Log screen share event to session
+      if (_currentSessionId) {
+        const { data: sess } = await supabase.from('room_sessions').select('screen_share_events').eq('id', _currentSessionId).single();
+        const events = sess?.screen_share_events || [];
+        events.push({ user_id: user.id, display_name: _peerNames[user.id] || 'Unknown', started_at: new Date().toISOString() });
+        await supabase.from('room_sessions').update({ screen_share_events: events }).eq('id', _currentSessionId);
+      }
+      // Create screen peer connections to all known members
+      const allPeerIds = Object.keys(_peerNames).filter(id => id !== user.id);
+      for (const peerId of allPeerIds) {
+        const pc = await createScreenPeerConnection(peerId, true);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-offer', offer, from: user.id, target: peerId } });
+      }
       _screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
     } catch (e) {
       showToast('Screen share cancelled', 'warning');
     }
   });
 
-  function stopScreenShare() {
+  async function stopScreenShare() {
     if (_screenStream) { _screenStream.getTracks().forEach(t => t.stop()); _screenStream = null; }
+    // Close screen peer connections
+    Object.entries(_screenPeerConnections).forEach(([key, pc]) => {
+      if (key.startsWith('screen-')) { pc.close(); }
+    });
+    _screenPeerConnections = {};
+    const el = document.getElementById(`screen-${user.id}`);
+    if (el) el.remove();
     document.getElementById('start-screen-btn').style.display = '';
     document.getElementById('stop-screen-btn').style.display = 'none';
-    document.getElementById('screen-view').innerHTML = '<div class="empty-state"><i class="fa-solid fa-display"></i><p>No one is sharing their screen</p></div>';
+    const view = document.getElementById('screen-view');
+    if (!view.querySelector('.room-screen-item')) {
+      view.innerHTML = '<div class="empty-state"><i class="fa-solid fa-display"></i><p>No one is sharing their screen</p></div>';
+    }
     _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-stop', from: user.id, target: 'all' } });
+    // Log screen share end
+    if (_currentSessionId) {
+      const { data: sess } = await supabase.from('room_sessions').select('screen_share_events').eq('id', _currentSessionId).single();
+      const events = sess?.screen_share_events || [];
+      const last = events.findLast(e => e.user_id === user.id && !e.ended_at);
+      if (last) last.ended_at = new Date().toISOString();
+      await supabase.from('room_sessions').update({ screen_share_events: events }).eq('id', _currentSessionId);
+    }
   }
 
   document.getElementById('stop-screen-btn')?.addEventListener('click', stopScreenShare);
+
+  // Screen share mic toggle
+  document.getElementById('screen-mic-btn')?.addEventListener('click', async () => {
+    if (!_screenStream) return;
+    let audioTrack = _screenStream.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled;
+      document.getElementById('screen-mic-btn').innerHTML = audioTrack.enabled
+        ? '<i class="fa-solid fa-microphone"></i> Mic'
+        : '<i class="fa-solid fa-microphone-slash"></i> Muted';
+    }
+  });
+
+  // ── Session Tracking ──
+  try {
+    const participantsList = [{ user_id: user.id, display_name: _peerNames[user.id] || 'Unknown', joined_at: new Date().toISOString() }];
+    const { data: session } = await supabase.from('room_sessions').insert({
+      room_id: roomId,
+      organizer_id: room.owner_id,
+      participants: participantsList
+    }).select('id').single();
+    if (session) _currentSessionId = session.id;
+  } catch (e) { console.warn('Session tracking init:', e); }
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (_currentSessionId) {
+      navigator.sendBeacon && supabase.from('room_sessions').update({ ended_at: new Date().toISOString() }).eq('id', _currentSessionId);
+    }
+    if (_localStream) _localStream.getTracks().forEach(t => t.stop());
+    if (_screenStream) _screenStream.getTracks().forEach(t => t.stop());
+  });
 
   gsap.fromTo('.room-body', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' });
 }
