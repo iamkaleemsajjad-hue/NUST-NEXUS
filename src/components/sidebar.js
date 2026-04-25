@@ -55,7 +55,7 @@ export function renderSidebar(profile) {
       <!-- Sidebar Header -->
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          ${getLogoSVG('sidebar-logo-img', '36', '36')}
+          ${getLogoSVG('sidebar-logo-img', '46', '46')}
           <span class="sidebar-brand">SCHOLAR NEXUS</span>
         </div>
       </div>
