@@ -2520,7 +2520,7 @@
 .room-member-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
 
 /* Main Content */
-.room-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.room-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 
 /* Tabs */
 .room-tabs {
