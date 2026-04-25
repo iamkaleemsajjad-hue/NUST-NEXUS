@@ -270,7 +270,7 @@ async function loadIdeas(profile) {
                 ${(() => {
                   const er = roomByIdea[idea.id];
                   if (er) {
-                    const mc = (er.room_members?.length || 0) + 1;
+                    const mc = er.room_members?.length || 0;
                     const isMbr = myMemberships.includes(er.id) || er.owner_id === profile.id;
                     if (isMbr) return '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window._enterRoom(\x27'+er.id+'\x27)"><i class="fa-solid fa-door-open"></i> Room ('+mc+')</button>';
                     return '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window._requestJoin(\x27'+er.id+'\x27)"><i class="fa-solid fa-right-to-bracket"></i> Request Join</button>';
