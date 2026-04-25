@@ -2517,7 +2517,7 @@
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
 }
-.room-member-name { font-size: 0.85rem; font-weight: 500; }
+.room-member-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
 
 /* Main Content */
 .room-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -2571,13 +2571,15 @@
   line-height: 1.4; position: relative;
 }
 .room-msg-me .room-msg-bubble {
-  background: var(--primary); color: #fff;
+  background: var(--primary); color: #121212;
   border-bottom-right-radius: 4px;
 }
+.room-msg-me .room-msg-time { color: rgba(0,0,0,0.5); }
 .room-msg-other .room-msg-bubble {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 4px; color: var(--text-primary);
 }
+.room-msg-text { color: inherit; }
 .room-msg-author { font-size: 0.7rem; font-weight: 600; color: var(--accent); margin-bottom: 2px; }
 .room-msg-time { font-size: 0.65rem; opacity: 0.6; margin-top: 4px; text-align: right; }
 .room-msg-system {
@@ -2613,8 +2615,26 @@
 
 /* Screen Share View */
 .room-screen-view {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  padding: 16px; overflow: auto;
+  flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 12px; padding: 16px; overflow: auto; align-content: start;
+}
+.room-screen-item {
+  position: relative; background: #000; border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.room-screen-item video {
+  width: 100%; max-height: 70vh; object-fit: contain; display: block;
+}
+.room-screen-label {
+  position: absolute; top: 8px; left: 8px;
+  background: rgba(0,0,0,0.7); color: #fff; padding: 3px 12px;
+  border-radius: 12px; font-size: 0.75rem; font-weight: 600;
+}
+/* Full-width room page override */
+.room-page-container {
+  padding: 0 !important; max-width: 100% !important;
+  height: calc(100vh - var(--header-height)) !important;
+  display: flex; flex-direction: column;
 }
 
 /* Responsive */
