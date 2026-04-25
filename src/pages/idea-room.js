@@ -374,7 +374,11 @@ export async function renderIdeaRoomPage() {
   // Separate peer connection for screen sharing
   async function createScreenPeerConnection(peerId, isSender) {
     const key = `screen-${peerId}`;
-    if (_screenPeerConnections[key]) return _screenPeerConnections[key];
+    // Close any stale connection for this peer first
+    if (_screenPeerConnections[key]) {
+      try { _screenPeerConnections[key].close(); } catch (_) {}
+      delete _screenPeerConnections[key];
+    }
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     _screenPeerConnections[key] = pc;
     if (isSender && _screenStream) {
@@ -389,6 +393,16 @@ export async function renderIdeaRoomPage() {
       addScreenElement(peerId, e.streams[0]);
     };
     return pc;
+  }
+
+  // Helper: switch to Screen Share tab programmatically
+  function switchToScreenTab() {
+    document.querySelectorAll('.room-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.room-tab-content').forEach(c => c.classList.remove('active'));
+    const screenTab = document.querySelector('.room-tab[data-tab="screen"]');
+    if (screenTab) screenTab.classList.add('active');
+    const screenContent = document.getElementById('tab-screen');
+    if (screenContent) screenContent.classList.add('active');
   }
 
   function addScreenElement(peerId, stream) {
@@ -438,6 +452,9 @@ export async function renderIdeaRoomPage() {
       const lbl = document.querySelector(`#video-${sig.from} .room-video-label`);
       if (lbl) lbl.textContent = sig.name;
     } else if (sig.type === 'screen-share' && sig.from !== user.id) {
+      // Auto-switch viewer to Screen Share tab so they can see the shared screen
+      switchToScreenTab();
+      showToast(`${_peerNames[sig.from] || 'Someone'} is sharing their screen`, 'info');
       // Receiver: tell the sharer we are ready to receive
       await createScreenPeerConnection(sig.from, false);
       _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal',
