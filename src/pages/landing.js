@@ -279,13 +279,24 @@ export async function renderLandingPage() {
     <!-- RIGHT: ab2 as <img> with Native Glitch/Distortion -->
     <div class="hero-ab2-wrap" id="hero-unicorn-container">
       <div class="hero-ab2-glow"></div>
+      
+      <!-- Base Image -->
       <img
         class="hero-ab2-img"
         src="/ab2.svg"
         alt="Scholar Nexus Hero Visual"
         draggable="false"
-        style="filter: url(#distort-filter) brightness(0.95) drop-shadow(-40px 0 80px rgba(0,0,0,0.9));"
       />
+      
+      <!-- Distorted Overlaid Image -->
+      <img
+        class="hero-ab2-img-distorted"
+        id="hero-distorted-layer"
+        src="/ab2.svg"
+        alt=""
+        draggable="false"
+      />
+
       <!-- Interactive SVG Distortion Filter -->
       <svg style="width:0;height:0;position:absolute;">
         <filter id="distort-filter" x="-20%" y="-20%" width="140%" height="140%">
@@ -454,28 +465,38 @@ export async function renderLandingPage() {
   gsap.fromTo('.hero-ab2-wrap', { opacity:0, x:50 }, { opacity:1, x:0, duration:1.1, delay:.2, ease:'power3.out' });
   gsap.to('.hero-ab2-img', { y:-18, duration:6, repeat:-1, yoyo:true, ease:'sine.inOut', delay:1 });
 
-  /* ── Interactive Native SVG Distortion ── */
+  /* ── Interactive Native SVG Localized Distortion ── */
   const imgWrap = document.getElementById('hero-unicorn-container');
+  const distortedLayer = document.getElementById('hero-distorted-layer');
   const dispMap = document.getElementById('disp-map');
-  if (imgWrap && dispMap) {
+  
+  if (imgWrap && distortedLayer && dispMap) {
     let targetScale = 0;
     let currentScale = 0;
 
     imgWrap.addEventListener('mousemove', (e) => {
-      // Calculate speed of mouse to make it react to movement
+      // Get position relative to wrapper for the mask
+      const r = imgWrap.getBoundingClientRect();
+      const mx = ((e.clientX - r.left) / r.width) * 100;
+      const my = ((e.clientY - r.top) / r.height) * 100;
+      
+      distortedLayer.style.setProperty('--mx', mx + '%');
+      distortedLayer.style.setProperty('--my', my + '%');
+      distortedLayer.style.opacity = '1';
+      
       targetScale = 60; // Max distortion scale
     });
+    
     imgWrap.addEventListener('mouseleave', () => {
+      distortedLayer.style.opacity = '0';
       targetScale = 0;
     });
 
     const tickDisp = () => {
       currentScale += (targetScale - currentScale) * 0.1;
-      // Only update DOM if there's a meaningful change
       if (Math.abs(targetScale - currentScale) > 0.1 || currentScale > 0.1) {
         dispMap.setAttribute('scale', currentScale.toString());
       }
-      // Slowly decay target scale back to 0 if mouse stops moving (auto-rest)
       if (targetScale > 0) targetScale -= 1.5; 
       if (targetScale < 0) targetScale = 0;
       requestAnimationFrame(tickDisp);
