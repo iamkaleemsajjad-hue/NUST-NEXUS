@@ -4,6 +4,7 @@ import { router } from './router.js';
 import { supabase } from './utils/supabase.js';
 import { recordLogin } from './utils/auth.js';
 import { renderLoginPage } from './pages/login.js';
+import { renderLandingPage } from './pages/landing.js';
 import { renderOnboardingPage } from './pages/onboarding.js';
 import { renderDashboardPage } from './pages/dashboard.js';
 import { renderUploadPage } from './pages/upload.js';
@@ -33,9 +34,10 @@ import { unsubscribeAll } from './utils/realtime.js';
 
 
 // Public routes (no auth required)
-const publicRoutes = ['/login'];
+const publicRoutes = ['/', '/login'];
 
 // Register routes
+router.addRoute('/', renderLandingPage);
 router.addRoute('/login', renderLoginPage);
 router.addRoute('/onboarding', renderOnboardingPage);
 router.addRoute('/dashboard', renderDashboardPage);
@@ -150,7 +152,7 @@ async function init() {
         router.navigate('/dashboard');
       }
     } else {
-      router.navigate('/login');
+      router.navigate('/');
     }
   } else {
     router.handleRoute();
@@ -160,7 +162,7 @@ async function init() {
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_OUT') {
       localStorage.removeItem('scholar_nexus_login_ts');
-      router.navigate('/login');
+      router.navigate('/');
     } else if (event === 'SIGNED_IN') {
       const user = session?.user;
       // Check if user is banned — force sign out immediately
@@ -195,7 +197,7 @@ async function init() {
       if (user) {
         try { await recordLogin(user.id); } catch (e) { console.warn('recordLogin:', e); }
       }
-      if (user && window.location.hash === '#/login') {
+      if (user && (window.location.hash === '#/login' || window.location.hash === '#/' || window.location.hash === '')) {
         // Skip redirect if user is in password reset mode
         if (window.__resetPasswordMode) return;
         

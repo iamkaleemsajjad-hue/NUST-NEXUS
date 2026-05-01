@@ -184,6 +184,15 @@ export async function renderLoginPage() {
 
   initLoginEvents();
 
+  // Honour tab selection from landing page
+  const landingTab = window.__landingTab;
+  if (landingTab === 'signup') {
+    document.getElementById('tab-signup')?.click();
+  } else {
+    document.getElementById('tab-signin')?.click();
+  }
+  window.__landingTab = null;
+
   // GSAP Entry Animations
   gsap.fromTo(".login-left", 
     { opacity: 0, x: -30 },

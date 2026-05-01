@@ -14,7 +14,7 @@ export class Router {
   }
 
   async handleRoute() {
-    const hash = window.location.hash.slice(1) || '/login';
+    const hash = window.location.hash.slice(1) || '/';
     
     if (this.beforeEach) {
       const canProceed = await this.beforeEach(hash, this.currentRoute);
@@ -28,7 +28,7 @@ export class Router {
       await handler();
     } else {
       // 404 fallback
-      this.navigate('/login');
+      this.navigate('/');
     }
   }
 
@@ -37,7 +37,7 @@ export class Router {
   }
 
   getCurrentRoute() {
-    return window.location.hash.slice(1) || '/login';
+    return window.location.hash.slice(1) || '/';
   }
 }
 
