@@ -2,88 +2,95 @@ import '../styles/landing.css';
 import { router } from '../router.js';
 import { supabase } from '../utils/supabase.js';
 import gsap from 'gsap';
+import anime from 'animejs/lib/anime.es.js';
 
-/* ── helpers ── */
-function navigateTo(tab) {
-  // tab: 'signin' | 'signup'
+/* ── navigate to login with correct tab ── */
+function goTo(tab) {
   window.__landingTab = tab;
   router.navigate('/login');
 }
 
+/* ── Mouse-track radial on buttons ── */
+function trackMouse(el) {
+  el.addEventListener('mousemove', (e) => {
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--rx', ((e.clientX - r.left) / r.width * 100) + '%');
+    el.style.setProperty('--ry', ((e.clientY - r.top) / r.height * 100) + '%');
+  });
+}
+
 /* ── Particle canvas ── */
 function initCanvas(canvas) {
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  let W = canvas.width = canvas.offsetWidth;
-  let H = canvas.height = canvas.offsetHeight;
-  const particles = Array.from({ length: 70 }, () => ({
-    x: Math.random() * W,
-    y: Math.random() * H,
-    r: Math.random() * 1.5 + 0.3,
-    vx: (Math.random() - 0.5) * 0.25,
-    vy: (Math.random() - 0.5) * 0.25,
-    o: Math.random() * 0.4 + 0.1,
+  let W, H;
+  const resize = () => { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; };
+  resize();
+  window.addEventListener('resize', resize, { passive: true });
+
+  const pts = Array.from({ length: 70 }, () => ({
+    x: Math.random() * (W || 1000), y: Math.random() * (H || 600),
+    r: Math.random() * 1.3 + 0.3,
+    vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2,
+    o: Math.random() * 0.3 + 0.08,
   }));
 
-  function draw() {
+  let raf;
+  const draw = () => {
     ctx.clearRect(0, 0, W, H);
-    particles.forEach(p => {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${p.o})`;
-      ctx.fill();
-      p.x += p.vx;
-      p.y += p.vy;
-      if (p.x < 0) p.x = W;
-      if (p.x > W) p.x = 0;
-      if (p.y < 0) p.y = H;
-      if (p.y > H) p.y = 0;
-    });
-    requestAnimationFrame(draw);
-  }
+    for (const p of pts) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${p.o})`; ctx.fill();
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; else if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; else if (p.y > H) p.y = 0;
+    }
+    raf = requestAnimationFrame(draw);
+  };
   draw();
-  window.addEventListener('resize', () => {
-    W = canvas.width = canvas.offsetWidth;
-    H = canvas.height = canvas.offsetHeight;
-  });
 }
 
 /* ── Scroll reveal ── */
 function initScrollReveal() {
-  const els = document.querySelectorAll('.reveal');
   const obs = new IntersectionObserver((entries) => {
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-  }, { threshold: 0.12 });
-  els.forEach(el => obs.observe(el));
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
 }
 
 /* ── Typewriter ── */
-function typewriter(el, words, speed = 80) {
-  let wi = 0, ci = 0, deleting = false;
-  function tick() {
-    const word = words[wi];
-    if (!deleting) {
-      el.textContent = word.slice(0, ci + 1);
-      ci++;
-      if (ci === word.length) { deleting = true; setTimeout(tick, 1800); return; }
-    } else {
-      el.textContent = word.slice(0, ci - 1);
-      ci--;
-      if (ci === 0) { deleting = false; wi = (wi + 1) % words.length; }
-    }
-    setTimeout(tick, deleting ? speed / 2 : speed);
-  }
+function typewriter(el, words, speed = 54) {
+  let wi = 0, ci = 0, del = false;
+  const tick = () => {
+    if (!document.contains(el)) return;
+    const w = words[wi];
+    el.textContent = del ? w.slice(0, ci - 1) : w.slice(0, ci + 1);
+    if (!del) { ci++; if (ci > w.length) { del = true; setTimeout(tick, 1900); return; } }
+    else { ci--; if (ci < 0) { del = false; wi = (wi + 1) % words.length; ci = 0; } }
+    setTimeout(tick, del ? speed / 2 : speed);
+  };
   tick();
 }
 
-/* ── Nav scroll effect ── */
-function initNav() {
-  const nav = document.querySelector('.landing-nav');
-  window.addEventListener('scroll', () => {
-    nav?.classList.toggle('scrolled', window.scrollY > 40);
-  }, { passive: true });
+/* ── Animated counter ── */
+function initCounters() {
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el = e.target;
+      const target = parseInt(el.dataset.target || '0');
+      const suffix = el.dataset.suffix || '';
+      anime({ targets: { v: 0 }, v: target, duration: 1800, easing: 'easeOutCubic',
+        update(anim) { el.textContent = Math.floor(anim.animations[0].currentValue).toLocaleString() + suffix; },
+        complete() { el.textContent = target.toLocaleString() + suffix; }
+      });
+      obs.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll('.stat-value[data-target]').forEach(el => obs.observe(el));
 }
 
-/* ── Mouse glow on exchange cards ── */
+/* ── Exchange card mouse glow track ── */
 function initCardGlow() {
   document.querySelectorAll('.exchange-card').forEach(card => {
     card.addEventListener('mousemove', (e) => {
@@ -94,44 +101,118 @@ function initCardGlow() {
   });
 }
 
-/* ── Counter animation ── */
-function animateCount(el, target, duration = 1800) {
-  let start = null;
-  function step(ts) {
-    if (!start) start = ts;
-    const prog = Math.min((ts - start) / duration, 1);
-    const ease = 1 - Math.pow(1 - prog, 3);
-    el.textContent = Math.floor(ease * target).toLocaleString() + (el.dataset.suffix || '');
-    if (prog < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-}
-
-function initCounters() {
-  const obs = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        const el = e.target;
-        animateCount(el, parseInt(el.dataset.target || '0'));
-        obs.unobserve(el);
-      }
+/* ── anime.js button magnetic hover ── */
+function initButtonAnimations() {
+  /* Primary buttons — magnetic + glow pulse on hover */
+  document.querySelectorAll('.hero-btn-primary, .cta-btn').forEach(btn => {
+    trackMouse(btn);
+    btn.addEventListener('mouseenter', () => {
+      anime({ targets: btn, scale: 1.05, duration: 320, easing: 'easeOutBack' });
     });
-  }, { threshold: 0.5 });
-  document.querySelectorAll('.stat-value[data-target]').forEach(el => obs.observe(el));
+    btn.addEventListener('mouseleave', () => {
+      anime({ targets: btn, scale: 1, duration: 280, easing: 'easeOutBack' });
+    });
+    btn.addEventListener('mousedown', () => {
+      anime({ targets: btn, scale: 0.96, duration: 100, easing: 'easeOutQuad' });
+    });
+    btn.addEventListener('mouseup', () => {
+      anime({ targets: btn, scale: 1.03, duration: 200, easing: 'easeOutBack' });
+    });
+  });
+
+  /* Secondary / outline buttons — border glow pulse */
+  document.querySelectorAll('.hero-btn-secondary, .nav-btn-outline, .nav-btn-solid').forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      anime({ targets: btn, scale: 1.04, duration: 260, easing: 'easeOutBack' });
+    });
+    btn.addEventListener('mouseleave', () => {
+      anime({ targets: btn, scale: 1, duration: 240, easing: 'easeOutBack' });
+    });
+  });
 }
 
-/* ── Inline SVG loader ── */
-async function loadSVG(path) {
-  try {
-    const res = await fetch(path);
-    if (!res.ok) return '';
-    return await res.text();
-  } catch { return ''; }
+/* ── anime.js border glow loop on feature items ── */
+function initFeatureGlows() {
+  const items = document.querySelectorAll('.feature-item');
+  items.forEach((item, i) => {
+    /* stagger-in entrance via anime */
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        anime({ targets: item, opacity: [0, 1], translateY: [30, 0], duration: 600, delay: i * 80, easing: 'easeOutCubic' });
+        obs.unobserve(item);
+      });
+    }, { threshold: 0.15 });
+    obs.observe(item);
+    item.style.opacity = '0'; // hide until animated in
+  });
 }
 
-/* ── Main render ── */
+/* ── anime.js exchange card entrance ── */
+function initExchangeAnimations() {
+  const cards = document.querySelectorAll('.exchange-card');
+  cards.forEach((card, i) => {
+    card.style.opacity = '0';
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        anime({ targets: card, opacity: [0, 1], translateY: [40, 0], scale: [0.95, 1], duration: 700, delay: i * 120, easing: 'easeOutCubic' });
+        obs.unobserve(card);
+      });
+    }, { threshold: 0.12 });
+    obs.observe(card);
+  });
+}
+
+/* ── anime.js stat items pulse on hover ── */
+function initStatAnimations() {
+  document.querySelectorAll('.stat-item').forEach(item => {
+    item.addEventListener('mouseenter', () => {
+      anime({ targets: item.querySelector('.stat-value'), scale: [1, 1.12, 1], duration: 500, easing: 'easeOutBack' });
+    });
+  });
+}
+
+/* ── anime.js: hero title letter-by-letter ── */
+function animateHeroTitle() {
+  document.querySelectorAll('.hero-title-line').forEach((line, li) => {
+    const text = line.textContent;
+    line.innerHTML = text.split('').map(ch => `<span style="display:inline-block;opacity:0;">${ch}</span>`).join('');
+    anime({
+      targets: line.querySelectorAll('span'),
+      opacity: [0, 1],
+      translateY: [40, 0],
+      rotateX: [60, 0],
+      duration: 600,
+      delay: anime.stagger(38, { start: li * 220 }),
+      easing: 'easeOutCubic',
+    });
+  });
+}
+
+/* ── anime.js: nav button border glow pulse (continuous) ── */
+function initNavGlowPulse() {
+  const btn = document.querySelector('.nav-btn-solid');
+  if (!btn) return;
+  anime({
+    targets: btn,
+    boxShadow: [
+      '0 0 0px rgba(255,255,255,0)',
+      '0 0 18px rgba(255,255,255,0.35)',
+      '0 0 0px rgba(255,255,255,0)',
+    ],
+    duration: 2800,
+    loop: true,
+    easing: 'easeInOutSine',
+    delay: 1500,
+  });
+}
+
+/* ═══════════════════════════════════════
+   MAIN RENDER
+   ═══════════════════════════════════════ */
 export async function renderLandingPage() {
-  // If user is already logged in, skip landing and go to dashboard
+  /* auth redirect */
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -141,367 +222,262 @@ export async function renderLandingPage() {
       if (profile && !profile.onboarding_complete) { router.navigate('/onboarding'); return; }
       router.navigate('/dashboard'); return;
     }
-  } catch { /* not logged in — show landing */ }
+  } catch { /* show landing */ }
 
   const app = document.getElementById('app');
 
-  // Skeleton
+  /* skeleton */
+  app.innerHTML = `<div style="background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;">
+    <div class="landing-skeleton" style="width:290px;height:52px;border-radius:10px;"></div>
+    <div class="landing-skeleton" style="width:360px;height:20px;border-radius:7px;"></div>
+    <div class="landing-skeleton" style="width:250px;height:20px;border-radius:7px;"></div>
+    <div style="display:flex;gap:12px;margin-top:10px;">
+      <div class="landing-skeleton" style="width:136px;height:44px;border-radius:100px;"></div>
+      <div class="landing-skeleton" style="width:116px;height:44px;border-radius:100px;"></div>
+    </div></div>`;
+
+  /* teacher cards */
+  const teachers = [
+    { init:'AK', name:'Dr. Ali Khan',       dept:'Computer Science', stars:5 },
+    { init:'SR', name:'Prof. Sara Raza',    dept:'Mathematics',      stars:4 },
+    { init:'MH', name:'Dr. M. Hussain',     dept:'Physics',          stars:5 },
+    { init:'FQ', name:'Ms. Fatima Qureshi', dept:'Software Eng.',    stars:4 },
+  ];
+
   app.innerHTML = `
-    <div class="landing-page" style="min-height:100vh;background:#000;">
-      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:24px;">
-        <div class="landing-skeleton" style="width:280px;height:60px;border-radius:12px;"></div>
-        <div class="landing-skeleton" style="width:420px;height:24px;border-radius:8px;"></div>
-        <div class="landing-skeleton" style="width:320px;height:24px;border-radius:8px;"></div>
-        <div style="display:flex;gap:16px;margin-top:16px;">
-          <div class="landing-skeleton" style="width:140px;height:48px;border-radius:100px;"></div>
-          <div class="landing-skeleton" style="width:120px;height:48px;border-radius:100px;"></div>
-        </div>
+<div class="landing-page" id="landing-root">
+
+  <!-- NAV -->
+  <nav class="landing-nav" id="landing-nav">
+    <span class="nav-logo-text">Scholar Nexus</span>
+    <div class="nav-actions">
+      <button class="nav-btn nav-btn-outline" id="nav-signin-btn">Sign In</button>
+      <button class="nav-btn nav-btn-solid"   id="nav-signup-btn">Sign Up</button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="landing-hero" id="hero">
+    <canvas id="landing-canvas"></canvas>
+    <div class="hero-bg-gradient"></div>
+
+    <!-- LEFT -->
+    <div class="hero-content">
+      <div class="hero-badge"><span class="hero-badge-dot"></span>Pakistan's Academic Platform</div>
+      <h1 class="hero-title">
+        <span class="hero-title-line">SCHOLAR</span>
+        <span class="hero-title-line">NEXUS</span>
+      </h1>
+      <div class="hero-subtitle-block">
+        <p class="hero-subtitle">Welcome to Your Study<br>Exchange Universe</p>
+        <p class="hero-tagline">Your global path to collaborative knowledge starts here.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="hero-btn-primary" id="hero-get-started-btn">
+          Get Started
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="hero-btn-secondary" id="hero-learn-more-btn">
+          Learn More
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 9l5 4 5-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
     </div>
-  `;
 
-  // Load SVGs in parallel
-  const [ab1Svg, ab2Svg] = await Promise.all([
-    loadSVG('/ab1.svg'),
-    loadSVG('/ab2.svg'),
-  ]);
-
-  // Inject animated classes into ab2 SVG
-  let ab2Animated = ab2Svg;
-  if (ab2Svg) {
-    // Add animation attributes to specific elements inside ab2
-    ab2Animated = ab2Svg
-      .replace(/<svg/, '<svg class="hero-ab2-svg"')
-      .replace(/(<circle[^>]*r="[3-9][^"]*"[^>]*>)/g, (m) => m.replace('>', ' class="svg-pulse-ring">'))
-      .replace(/(<path[^>]*stroke[^>]*opacity="0\.[1-3][^"]*"[^>]*\/>)/g, (m) => m.replace('/>', ' class="svg-scan-line"/>'));
-  }
-
-  app.innerHTML = `
-    <div class="landing-page" id="landing-root">
-
-      <!-- ══ NAV ══ -->
-      <nav class="landing-nav" id="landing-nav">
-        <a class="nav-logo" href="#/" onclick="return false;">
-          <span class="nav-logo-text">Scholar Nexus</span>
-        </a>
-        <div class="nav-actions">
-          <button class="nav-btn nav-btn-outline" id="nav-signin">Sign In</button>
-          <button class="nav-btn nav-btn-solid" id="nav-signup">Sign Up</button>
-        </div>
-      </nav>
-
-      <!-- ══ HERO ══ -->
-      <section class="landing-hero" id="hero">
-        <canvas id="landing-canvas"></canvas>
-        <div class="hero-bg-gradient"></div>
-
-        <div class="hero-content">
-          <div class="hero-badge">
-            <span class="hero-badge-dot"></span>
-            Pakistan's Academic Platform
-          </div>
-
-          <h1 class="hero-title">
-            <span class="hero-title-main">SCHOLAR</span>
-            <span class="hero-title-main">NEXUS</span>
-          </h1>
-
-          <div class="hero-subtitle-block">
-            <p class="hero-subtitle">Welcome to Your Study<br>Exchange Universe</p>
-          </div>
-
-          <p class="hero-tagline">
-            Your global path to collaborative knowledge starts here.
-            <br/>
-            <em style="font-style:normal;color:rgba(255,255,255,0.3);">
-              Knowledge should flow between students,<br>not stay locked in notebooks.
-            </em>
-          </p>
-
-          <div class="hero-actions">
-            <button class="hero-btn-primary" id="hero-get-started">
-              Get Started
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <button class="hero-btn-secondary" id="hero-learn-more">
-              Learn More
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 9l5 4 5-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- ab2 SVG animated visual -->
-        <div class="hero-ab2-wrap">
-          <div class="hero-ab2-glow"></div>
-          ${ab2Animated || `
-            <div style="width:500px;height:500px;display:flex;align-items:center;justify-content:center;opacity:0.15;">
-              <div class="landing-skeleton hero-ab2-svg" style="width:480px;height:480px;border-radius:50%;"></div>
-            </div>
-          `}
-        </div>
-
-        <div class="hero-scroll-hint">
-          <span class="scroll-line"></span>
-          Scroll to explore
-        </div>
-      </section>
-
-      <!-- ══ QUOTE ══ -->
-      <div class="section-divider"></div>
-      <section class="quote-section">
-        <div class="quote-text reveal">
-          <span class="typewriter-text" id="quote-tw"></span><span class="typewriter-cursor"></span>
-        </div>
-        <p class="quote-author reveal reveal-delay-1">— Scholar Nexus Philosophy</p>
-      </section>
-      <div class="section-divider"></div>
-
-      <!-- ══ FEATURES ══ -->
-      <section class="landing-section" id="features">
-        <div class="section-label reveal">What We Offer</div>
-        <h2 class="section-heading reveal reveal-delay-1">
-          Everything a student needs,<br><em>in one place</em>
-        </h2>
-        <p class="section-sub reveal reveal-delay-2">
-          From uploading past papers to collaborating in real-time idea rooms — Scholar Nexus is built by students, for students.
-        </p>
-
-        <div class="features-grid reveal reveal-delay-2">
-          <div class="feature-item">
-            <div class="feature-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-            <div class="feature-title">Resource Sharing</div>
-            <div class="feature-desc">Upload and access past papers, notes, assignments and study guides shared by fellow students across departments.</div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon"><i class="fa-solid fa-lightbulb"></i></div>
-            <div class="feature-title">Idea Rooms</div>
-            <div class="feature-desc">Collaborate in real-time with video, audio, screen-sharing and live chat. Build together, learn together.</div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon"><i class="fa-solid fa-star"></i></div>
-            <div class="feature-title">Rate Your Teachers</div>
-            <div class="feature-desc">Give honest feedback on faculty based on real experience. Help others choose better learning paths and build transparency in education.</div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon"><i class="fa-solid fa-circle-question"></i></div>
-            <div class="feature-title">Ask Questions</div>
-            <div class="feature-desc">Post your academic questions and get answers from peers who already survived the same struggle — fast.</div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon"><i class="fa-solid fa-trophy"></i></div>
-            <div class="feature-title">Points & Rewards</div>
-            <div class="feature-desc">Earn points for every contribution. The more you share, the more you gain. A fair learning exchange system.</div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon"><i class="fa-solid fa-clipboard-check"></i></div>
-            <div class="feature-title">Assessment Requests</div>
-            <div class="feature-desc">Request verified assessments and past papers from specific professors and courses — no more guessing what to study.</div>
-          </div>
-        </div>
-
-        <!-- Stats -->
-        <div class="stats-row reveal reveal-delay-3">
-          <div class="stat-item">
-            <div class="stat-value" data-target="2400" data-suffix="+">0+</div>
-            <div class="stat-label">Resources Shared</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" data-target="850" data-suffix="+">0+</div>
-            <div class="stat-label">Active Students</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" data-target="320" data-suffix="+">0+</div>
-            <div class="stat-label">Teachers Rated</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value" data-target="120" data-suffix="+">0+</div>
-            <div class="stat-label">Idea Rooms Created</div>
-          </div>
-        </div>
-      </section>
-
-      <div class="section-divider"></div>
-
-      <!-- ══ TEACHER RATING ══ -->
-      <section class="teacher-section" id="teachers">
-        <div class="teacher-section-text">
-          <div class="section-label reveal">Faculty Feedback</div>
-          <h2 class="section-heading reveal reveal-delay-1">Rate Your<br>Teachers</h2>
-          <p class="section-sub reveal reveal-delay-2" style="margin-bottom:0;">
-            Give feedback about teachers based on real experience.<br><br>
-            ✦ Help others choose better learning paths<br>
-            ✦ Build transparency in education<br>
-            ✦ Rate teaching style, clarity &amp; fairness<br><br>
-            <span style="color:rgba(255,255,255,0.3);font-size:0.875rem;">Your honest rating helps future students make smarter choices.</span>
-          </p>
-        </div>
-        <div class="teacher-rating-preview reveal reveal-delay-2">
-          <div style="font-size:0.72rem;color:rgba(255,255,255,0.3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.06);">
-            Top Rated Faculty
-          </div>
-          ${[
-      { init: 'AK', name: 'Dr. Ali Khan', dept: 'Computer Science', stars: 5 },
-      { init: 'SR', name: 'Prof. Sara Raza', dept: 'Mathematics', stars: 4 },
-      { init: 'MH', name: 'Dr. M. Hussain', dept: 'Physics', stars: 5 },
-      { init: 'FQ', name: 'Ms. Fatima Qureshi', dept: 'Software Eng.', stars: 4 },
-    ].map((t, i) => `
-            <div class="teacher-card-preview" style="animation-delay:${0.1 * i}s;">
-              <div class="teacher-avatar-preview">${t.init}</div>
-              <div class="teacher-info-preview">
-                <div class="teacher-name-preview">${t.name}</div>
-                <div class="teacher-dept-preview">${t.dept}</div>
-              </div>
-              <div class="teacher-stars">${'★'.repeat(t.stars)}${'☆'.repeat(5 - t.stars)}</div>
-            </div>
-          `).join('')}
-        </div>
-      </section>
-
-      <div class="section-divider"></div>
-
-      <!-- ══ PEER EXCHANGE ══ -->
-      <section class="exchange-section" id="exchange">
-        <div class="section-label reveal">Peer Learning</div>
-        <h2 class="section-heading reveal reveal-delay-1">
-          Learn from people who<br><em>already survived the same struggle</em>
-        </h2>
-        <p class="section-sub reveal reveal-delay-2">
-          It's a fair learning exchange system. You give, you get. Knowledge flows freely — no gatekeeping, no paywalls.
-        </p>
-
-        <div class="exchange-grid">
-          <div class="exchange-card reveal reveal-delay-1">
-            <span class="exchange-card-icon">📚</span>
-            <div class="exchange-card-title">Upload &amp; Download Freely</div>
-            <div class="exchange-card-desc">Share your notes, past papers and study material. Download what others have contributed. Every upload earns you points toward your academic reputation.</div>
-          </div>
-          <div class="exchange-card reveal reveal-delay-2">
-            <span class="exchange-card-icon">🧠</span>
-            <div class="exchange-card-title">Q&amp;A Between Students</div>
-            <div class="exchange-card-desc">Stuck on a concept? Ask the community. Someone who aced that same course last semester is just a question away — real answers from real experience.</div>
-          </div>
-          <div class="exchange-card reveal reveal-delay-3">
-            <span class="exchange-card-icon">🎥</span>
-            <div class="exchange-card-title">Collaborative Idea Rooms</div>
-            <div class="exchange-card-desc">Create or join Idea Rooms for group study sessions. Real-time video, chat and screen sharing — your study group, upgraded.</div>
-          </div>
-          <div class="exchange-card reveal reveal-delay-4">
-            <span class="exchange-card-icon">🔒</span>
-            <div class="exchange-card-title">University Emails Only</div>
-            <div class="exchange-card-desc">Verified university email sign-up keeps the community trusted and safe. Only real students — no spam, no noise.</div>
-          </div>
-        </div>
-      </section>
-
-      <div class="section-divider"></div>
-
-      <!-- ══ CTA ══ -->
-      <section class="cta-section">
-        <h2 class="cta-heading reveal">
-          Ready to connect<br>with your people?
-        </h2>
-        <p class="cta-sub reveal reveal-delay-1">
-          Join thousands of students already sharing knowledge, rating teachers and acing their exams together.
-        </p>
-        <button class="cta-btn reveal reveal-delay-2" id="cta-get-started">
-          Get Started — It's Free
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3.5 9h11M10 5l4 4-4 4" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-      </section>
-
-      <!-- ══ FOOTER ══ -->
-      <footer class="landing-footer">
-        <span>© 2025 Scholar Nexus · All rights reserved</span>
-        <div class="footer-links">
-          <a href="#features">Features</a>
-          <a href="#teachers">Ratings</a>
-          <a href="#exchange">Exchange</a>
-          <button class="nav-btn nav-btn-outline" id="footer-signin" style="padding:6px 16px;font-size:0.78rem;">Sign In</button>
-        </div>
-      </footer>
-
+    <!-- RIGHT: ab2 as <img> — reliable full-figure display -->
+    <div class="hero-ab2-wrap">
+      <div class="hero-ab2-glow"></div>
+      <img
+        class="hero-ab2-img"
+        src="/ab2.svg"
+        alt="Scholar Nexus Hero Visual"
+        draggable="false"
+      />
     </div>
-  `;
 
-  // ── Bind buttons ──
-  document.getElementById('nav-signin')?.addEventListener('click', () => navigateTo('signin'));
-  document.getElementById('nav-signup')?.addEventListener('click', () => navigateTo('signup'));
-  document.getElementById('hero-get-started')?.addEventListener('click', () => navigateTo('signup'));
-  document.getElementById('cta-get-started')?.addEventListener('click', () => navigateTo('signup'));
-  document.getElementById('footer-signin')?.addEventListener('click', () => navigateTo('signin'));
-  document.getElementById('hero-learn-more')?.addEventListener('click', () => {
+    <div class="hero-scroll-hint"><span class="scroll-line"></span>Scroll to explore</div>
+  </section>
+
+  <!-- QUOTE -->
+  <div class="section-divider"></div>
+  <section class="quote-section">
+    <p class="quote-text reveal"><span id="quote-tw"></span><span class="typewriter-cursor"></span></p>
+    <span class="quote-author reveal reveal-delay-1">— Scholar Nexus Philosophy</span>
+  </section>
+  <div class="section-divider"></div>
+
+  <!-- FEATURES -->
+  <section class="landing-section" id="features">
+    <div class="section-label reveal">What We Offer</div>
+    <h2 class="section-heading reveal reveal-delay-1">Everything a student needs,<br><em>in one place</em></h2>
+    <p class="section-sub reveal reveal-delay-2">From sharing past papers to real-time idea rooms — Scholar Nexus is built by students, for students.</p>
+    <div class="features-grid">
+      ${[
+        ['fa-cloud-arrow-up','Resource Sharing','Upload and access past papers, notes and assignments shared by students across all departments.'],
+        ['fa-lightbulb','Idea Rooms','Collaborate in real-time with video, audio, screen-sharing and live chat. Study together, build together.'],
+        ['fa-star','Rate Your Teachers','Give honest feedback based on real experience. Help others choose better learning paths and build transparency.'],
+        ['fa-circle-question','Ask Questions','Post academic questions and get answers from peers who survived the same struggle — fast and real.'],
+        ['fa-trophy','Points & Rewards','Earn points for every contribution. A fair learning exchange — the more you share, the more you gain.'],
+        ['fa-clipboard-check','Assessment Requests','Request verified past papers from specific professors. Know exactly what to study — no guessing.'],
+      ].map(([icon, title, desc]) => `
+        <div class="feature-item">
+          <div class="feature-icon"><i class="fa-solid ${icon}"></i></div>
+          <div class="feature-title">${title}</div>
+          <div class="feature-desc">${desc}</div>
+        </div>`).join('')}
+    </div>
+    <div class="stats-row reveal reveal-delay-3">
+      <div class="stat-item"><div class="stat-value" data-target="2400" data-suffix="+">0+</div><div class="stat-label">Resources Shared</div></div>
+      <div class="stat-item"><div class="stat-value" data-target="850"  data-suffix="+">0+</div><div class="stat-label">Active Students</div></div>
+      <div class="stat-item"><div class="stat-value" data-target="320"  data-suffix="+">0+</div><div class="stat-label">Teachers Rated</div></div>
+      <div class="stat-item"><div class="stat-value" data-target="120"  data-suffix="+">0+</div><div class="stat-label">Idea Rooms Created</div></div>
+    </div>
+  </section>
+  <div class="section-divider"></div>
+
+  <!-- TEACHERS -->
+  <section class="teacher-section" id="teachers">
+    <div>
+      <div class="section-label reveal">Faculty Feedback</div>
+      <h2 class="section-heading reveal reveal-delay-1">Rate Your<br>Teachers</h2>
+      <p class="section-sub reveal reveal-delay-2" style="margin-bottom:0;">
+        Give feedback about teachers based on real experience.<br><br>
+        <span style="color:rgba(255,255,255,.5)">✦</span> Help others choose better learning paths<br>
+        <span style="color:rgba(255,255,255,.5)">✦</span> Build transparency in education<br>
+        <span style="color:rgba(255,255,255,.5)">✦</span> Rate teaching style, clarity &amp; fairness<br><br>
+        <em style="font-style:normal;color:rgba(255,255,255,.26);font-size:.84rem;">Your honest rating helps future students make smarter choices.</em>
+      </p>
+    </div>
+    <div class="teacher-rating-preview reveal reveal-delay-2">
+      <div style="font-size:.67rem;color:rgba(255,255,255,.26);letter-spacing:.12em;text-transform:uppercase;margin-bottom:16px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.05);">Top Rated Faculty</div>
+      ${teachers.map((t,i) => `
+        <div class="teacher-card-preview" style="animation-delay:${i*.12}s;">
+          <div class="teacher-avatar-preview">${t.init}</div>
+          <div class="teacher-info-preview">
+            <div class="teacher-name-preview">${t.name}</div>
+            <div class="teacher-dept-preview">${t.dept}</div>
+          </div>
+          <div class="teacher-stars">${'★'.repeat(t.stars)}${'☆'.repeat(5-t.stars)}</div>
+        </div>`).join('')}
+    </div>
+  </section>
+  <div class="section-divider"></div>
+
+  <!-- EXCHANGE -->
+  <section class="exchange-section" id="exchange">
+    <div class="section-label reveal">Peer Learning</div>
+    <h2 class="section-heading reveal reveal-delay-1">Learn from people who<br><em>already survived the same struggle</em></h2>
+    <p class="section-sub reveal reveal-delay-2">It's a fair learning exchange system. You give, you get. Knowledge flows freely — no gatekeeping, no paywalls.</p>
+    <div class="exchange-grid">
+      ${[
+        ['📚','Upload & Download Freely','Share notes, past papers and study material. Every upload earns you points toward your academic reputation.'],
+        ['🧠','Q&A Between Students','Someone who aced that same course is just a question away — real answers from real experience.'],
+        ['🎥','Collaborative Idea Rooms','Create or join Idea Rooms for group study. Real-time video, chat and screen sharing — your study group, upgraded.'],
+        ['🔒','University Emails Only','Verified university email sign-up keeps the community trusted and safe. Only real students — no spam, no noise.'],
+      ].map(([icon, title, desc]) => `
+        <div class="exchange-card">
+          <span class="exchange-card-icon">${icon}</span>
+          <div class="exchange-card-title">${title}</div>
+          <div class="exchange-card-desc">${desc}</div>
+        </div>`).join('')}
+    </div>
+  </section>
+  <div class="section-divider"></div>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <h2 class="cta-heading reveal">Ready to connect<br>with your people?</h2>
+    <p class="cta-sub reveal reveal-delay-1">Join thousands of students sharing knowledge, rating teachers and acing exams together.</p>
+    <button class="cta-btn reveal reveal-delay-2" id="cta-get-started-btn">
+      Get Started — It's Free
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3.5 9h11M10 5l4 4-4 4" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="landing-footer">
+    <span>© 2025 Scholar Nexus · All rights reserved</span>
+    <div class="footer-links">
+      <a href="#features">Features</a>
+      <a href="#teachers">Ratings</a>
+      <a href="#exchange">Exchange</a>
+      <button class="nav-btn nav-btn-outline" id="footer-signin-btn" style="padding:6px 16px;font-size:.77rem;">Sign In</button>
+    </div>
+  </footer>
+</div>`;
+
+  /* ── Wire buttons ── */
+  document.getElementById('nav-signin-btn')?.addEventListener('click', () => goTo('signin'));
+  document.getElementById('nav-signup-btn')?.addEventListener('click', () => goTo('signup'));
+  document.getElementById('hero-get-started-btn')?.addEventListener('click', () => goTo('signup'));
+  document.getElementById('cta-get-started-btn')?.addEventListener('click', () => goTo('signup'));
+  document.getElementById('footer-signin-btn')?.addEventListener('click', () => goTo('signin'));
+  document.getElementById('hero-learn-more-btn')?.addEventListener('click', () => {
     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
   });
 
-  // ── Canvas ──
-  const canvas = document.getElementById('landing-canvas');
-  if (canvas) initCanvas(canvas);
+  /* ── Nav scroll ── */
+  const nav = document.getElementById('landing-nav');
+  window.addEventListener('scroll', () => nav?.classList.toggle('scrolled', window.scrollY > 40), { passive: true });
 
-  // ── Nav scroll ──
-  initNav();
+  /* ── Canvas ── */
+  initCanvas(document.getElementById('landing-canvas'));
 
-  // ── Scroll reveal ──
+  /* ── Scroll reveal ── */
   initScrollReveal();
 
-  // ── Counters ──
+  /* ── Counters ── */
   initCounters();
 
-  // ── Card glow ──
+  /* ── Card glow ── */
   initCardGlow();
 
-  // ── Typewriter quotes ──
-  const twEl = document.getElementById('quote-tw');
-  if (twEl) {
-    typewriter(twEl, [
-      'Knowledge should flow between students, not stay locked in notebooks.',
-      'Learn from people who already survived the same struggle.',
-      'Build transparency in education — one rating at a time.',
-      'Your notes could be the reason someone passes their exam.',
-    ], 55);
-  }
+  /* ── Typewriter ── */
+  const tw = document.getElementById('quote-tw');
+  if (tw) typewriter(tw, [
+    'Knowledge should flow between students, not stay locked in notebooks.',
+    'Learn from people who already survived the same struggle.',
+    'Build transparency in education — one rating at a time.',
+    'Your notes could be the reason someone passes their exam.',
+  ]);
 
-  // ── GSAP hero entrance ──
-  gsap.fromTo('.hero-badge', { opacity: 0, y: -12 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' });
-  gsap.fromTo('.hero-title', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.9, delay: 0.1, ease: 'power3.out' });
-  gsap.fromTo('.hero-subtitle-block', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, delay: 0.35, ease: 'power3.out' });
-  gsap.fromTo('.hero-tagline', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.7, delay: 0.5, ease: 'power3.out' });
-  gsap.fromTo('.hero-actions', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.7, delay: 0.65, ease: 'power3.out' });
-  gsap.fromTo('.hero-scroll-hint', { opacity: 0 }, { opacity: 1, duration: 1, delay: 1.2 });
-  gsap.fromTo('.hero-ab2-wrap', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 1.1, delay: 0.2, ease: 'power3.out' });
+  /* ── anime.js: hero title letters ── */
+  animateHeroTitle();
 
-  // ── ab2 SVG inner element animations (GSAP) ──
-  setTimeout(() => {
-    // Animate circles inside ab2
-    const circles = document.querySelectorAll('.hero-ab2-wrap circle');
-    if (circles.length) {
-      gsap.to(circles, {
-        opacity: 0.3,
-        duration: 2,
-        stagger: { each: 0.15, repeat: -1, yoyo: true },
-        ease: 'sine.inOut',
-      });
-    }
-    // Animate paths
-    const paths = document.querySelectorAll('.hero-ab2-wrap path');
-    if (paths.length) {
-      gsap.to(paths, {
-        opacity: (i) => 0.4 + (i % 3) * 0.2,
-        duration: 3,
-        stagger: { each: 0.08, repeat: -1, yoyo: true },
-        ease: 'sine.inOut',
-      });
-    }
-    // Subtle rotation on the whole ab2
-    const ab2Root = document.querySelector('.hero-ab2-wrap > svg');
-    if (ab2Root) {
-      gsap.to(ab2Root, {
-        rotateZ: 2,
-        duration: 8,
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut',
-        transformOrigin: 'center center',
-      });
-    }
-  }, 300);
+  /* ── GSAP hero entrance (badge, subtitle, buttons, scroll-hint) ── */
+  gsap.fromTo('.hero-badge',          { opacity:0, y:-10 }, { opacity:1, y:0, duration:.55, delay:.1, ease:'power3.out' });
+  gsap.fromTo('.hero-subtitle-block', { opacity:0, y:26  }, { opacity:1, y:0, duration:.7,  delay:.55, ease:'power3.out' });
+  gsap.fromTo('.hero-actions',        { opacity:0, y:20  }, { opacity:1, y:0, duration:.6,  delay:.75, ease:'power3.out' });
+  gsap.fromTo('.hero-scroll-hint',    { opacity:0        }, { opacity:1,      duration:.8,  delay:1.2  });
+
+  /* ab2 entrance */
+  gsap.fromTo('.hero-ab2-wrap', { opacity:0, x:50 }, { opacity:1, x:0, duration:1.1, delay:.2, ease:'power3.out' });
+
+  /* ab2 continuous float */
+  gsap.to('.hero-ab2-img', { y:-18, duration:6, repeat:-1, yoyo:true, ease:'sine.inOut', delay:1 });
+
+  /* ── anime.js button animations ── */
+  initButtonAnimations();
+
+  /* ── anime.js feature card entrance & glows ── */
+  initFeatureGlows();
+
+  /* ── anime.js exchange card entrance ── */
+  initExchangeAnimations();
+
+  /* ── anime.js stat hover ── */
+  initStatAnimations();
+
+  /* ── anime.js nav glow pulse ── */
+  initNavGlowPulse();
+
+  /* ── anime.js: hero badge continuous subtle pulse ── */
+  anime({
+    targets: '.hero-badge',
+    borderColor: ['rgba(255,255,255,.14)', 'rgba(255,255,255,.36)', 'rgba(255,255,255,.14)'],
+    duration: 2800,
+    loop: true,
+    easing: 'easeInOutSine',
+    delay: 1800,
+  });
 }
