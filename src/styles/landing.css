@@ -22,7 +22,7 @@
 /* ── RIGHT: VR Figure (ab2.svg) ── */
 .hero-ab2-wrap {
   position:absolute; right:0; top:0; width:50%; height:100%;
-  z-index:1; overflow:hidden;
+  z-index:3; overflow:hidden;
   display:flex; align-items:center; justify-content:center;
   pointer-events:none;
 }
