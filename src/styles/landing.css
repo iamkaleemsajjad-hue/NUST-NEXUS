@@ -19,29 +19,23 @@
 .hero-bg-gradient { position:absolute; inset:0; background:radial-gradient(ellipse 50% 100% at 25% 50%, rgba(10,10,10,0) 0%, #000 70%); pointer-events:none; z-index:2; }
 #landing-canvas { position:absolute; inset:0; z-index:1; pointer-events:none; }
 
-/* RIGHT: figure — img approach for reliable sizing */
+/* ── RIGHT: VR Figure (ab2.svg) ── */
 .hero-ab2-wrap {
-  position:absolute; right:0; top:0; width:54%; height:100%;
+  position:absolute; right:0; top:0; width:50%; height:100%;
   z-index:1; overflow:hidden;
-  display:flex; align-items:flex-start; justify-content:center;
-}
-.hero-ab2-wrap::before {
-  content:''; position:absolute; left:0; top:0; width:55%; height:100%;
-  background:linear-gradient(to right,#000 0%,rgba(0,0,0,0) 100%);
-  z-index:3; pointer-events:none;
+  display:flex; align-items:center; justify-content:center;
+  pointer-events:none;
 }
 .hero-ab2-img {
-  width:auto;
-  height:105%;          /* slightly taller than viewport so head is never clipped */
-  max-width:none;
+  width:100%;
+  height:100%;
+  max-height:95vh;
   object-fit:contain;
-  object-position:top center;
-  margin-top:-2%;       /* nudge up to ensure head is fully visible */
+  object-position:right center;
   position:relative;
   z-index:2;
-  filter:brightness(.92) contrast(1.05) drop-shadow(-60px 0 100px rgba(0,0,0,.95));
+  filter:brightness(0.95) drop-shadow(-40px 0 80px rgba(0,0,0,0.9));
   animation:heroFloat 7s ease-in-out infinite;
-  transform-origin:center top;
 }
 .hero-ab2-glow {
   position:absolute; right:15%; top:40%; transform:translateY(-50%);
@@ -58,10 +52,9 @@
 .hero-badge-dot { width:6px; height:6px; background:#fff; border-radius:50%; animation:dotP 2s ease-in-out infinite; }
 @keyframes dotP { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
 
-.hero-title { font-family:'Outfit',sans-serif; font-size:clamp(3.6rem,7.2vw,7rem); font-weight:900; line-height:.88; letter-spacing:-.03em; text-transform:uppercase; margin:0; display:flex; flex-direction:column; }
-.hero-title-line { display:block; color:transparent; -webkit-text-stroke:1.5px rgba(255,255,255,.52); background:linear-gradient(135deg,rgba(255,255,255,.55) 0%,rgba(140,140,160,.38) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.hero-title-img { max-width:100%; height:auto; margin-bottom:0; display:block; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5)); }
 
-.hero-subtitle-block { margin-top:26px; }
+.hero-subtitle-block { margin-top:16px; }
 .hero-subtitle { font-family:'Outfit',sans-serif; font-size:clamp(1.3rem,2.5vw,1.95rem); font-weight:700; color:#fff; line-height:1.22; margin:0; }
 .hero-tagline { margin-top:10px; font-size:.9rem; color:rgba(255,255,255,.42); line-height:1.72; max-width:370px; }
 

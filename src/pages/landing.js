@@ -173,20 +173,15 @@ function initStatAnimations() {
   });
 }
 
-/* ── anime.js: hero title letter-by-letter ── */
+/* ── anime.js: hero title entrance ── */
 function animateHeroTitle() {
-  document.querySelectorAll('.hero-title-line').forEach((line, li) => {
-    const text = line.textContent;
-    line.innerHTML = text.split('').map(ch => `<span style="display:inline-block;opacity:0;">${ch}</span>`).join('');
-    anime({
-      targets: line.querySelectorAll('span'),
-      opacity: [0, 1],
-      translateY: [40, 0],
-      rotateX: [60, 0],
-      duration: 600,
-      delay: anime.stagger(38, { start: li * 220 }),
-      easing: 'easeOutCubic',
-    });
+  anime({
+    targets: '.hero-title-img',
+    opacity: [0, 1],
+    translateY: [30, 0],
+    duration: 800,
+    easing: 'easeOutCubic',
+    delay: 200
   });
 }
 
@@ -264,10 +259,7 @@ export async function renderLandingPage() {
     <!-- LEFT -->
     <div class="hero-content">
       <div class="hero-badge"><span class="hero-badge-dot"></span>Pakistan's Academic Platform</div>
-      <h1 class="hero-title">
-        <span class="hero-title-line">SCHOLAR</span>
-        <span class="hero-title-line">NEXUS</span>
-      </h1>
+      <img src="/ab1.svg" class="hero-title-img" alt="Scholar Nexus" draggable="false" />
       <div class="hero-subtitle-block">
         <p class="hero-subtitle">Welcome to Your Study<br>Exchange Universe</p>
         <p class="hero-tagline">Your global path to collaborative knowledge starts here.</p>
@@ -441,13 +433,13 @@ export async function renderLandingPage() {
     'Your notes could be the reason someone passes their exam.',
   ]);
 
-  /* ── anime.js: hero title letters ── */
+  /* ── anime.js: hero title ── */
   animateHeroTitle();
 
   /* ── GSAP hero entrance (badge, subtitle, buttons, scroll-hint) ── */
   gsap.fromTo('.hero-badge',          { opacity:0, y:-10 }, { opacity:1, y:0, duration:.55, delay:.1, ease:'power3.out' });
-  gsap.fromTo('.hero-subtitle-block', { opacity:0, y:26  }, { opacity:1, y:0, duration:.7,  delay:.55, ease:'power3.out' });
-  gsap.fromTo('.hero-actions',        { opacity:0, y:20  }, { opacity:1, y:0, duration:.6,  delay:.75, ease:'power3.out' });
+  gsap.fromTo('.hero-subtitle-block', { opacity:0, y:26  }, { opacity:1, y:0, duration:.7,  delay:.4, ease:'power3.out' });
+  gsap.fromTo('.hero-actions',        { opacity:0, y:20  }, { opacity:1, y:0, duration:.6,  delay:.6, ease:'power3.out' });
   gsap.fromTo('.hero-scroll-hint',    { opacity:0        }, { opacity:1,      duration:.8,  delay:1.2  });
 
   /* ab2 entrance */
