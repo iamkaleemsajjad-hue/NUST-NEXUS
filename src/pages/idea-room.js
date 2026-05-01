@@ -438,6 +438,7 @@ export async function renderIdeaRoomPage() {
     const existingEmpty = view.querySelector('.empty-state');
     if (existingEmpty) existingEmpty.remove();
 
+    // If already exists, just update the stream
     let wrapper = document.getElementById(`screen-${peerId}`);
     if (wrapper) {
       const v = wrapper.querySelector('video');
@@ -445,54 +446,74 @@ export async function renderIdeaRoomPage() {
       return;
     }
 
+    // Build wrapper
     wrapper = document.createElement('div');
     wrapper.className = 'room-screen-item';
     wrapper.id = `screen-${peerId}`;
-    wrapper.style.cssText = 'position:relative;width:100%;';
 
+    // Video element
     const vid = document.createElement('video');
     vid.srcObject = stream;
     vid.autoplay = true;
     vid.playsInline = true;
-    // Mute local preview to avoid feedback; remote streams play with audio
     if (peerId === user.id) vid.muted = true;
-    vid.style.cssText = 'width:100%;max-height:72vh;object-fit:contain;background:#000;display:block;border-radius:4px;';
-    // Force play once metadata is ready (required on some mobile/desktop browsers)
     vid.addEventListener('loadedmetadata', () => vid.play().catch(() => {}));
 
-    // ── Fullscreen button ──
+    // YouTube-style overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'room-screen-overlay';
+
+    // Top: label with live dot
+    const overlayTop = document.createElement('div');
+    overlayTop.className = 'overlay-top';
+    const label = document.createElement('div');
+    label.className = 'room-screen-label';
+    label.innerHTML = `<i class="fa-solid fa-circle" style="font-size:0.5rem;color:#ff3b5c;animation:pulse 1.5s ease-in-out infinite;"></i> ${peerId === user.id ? 'You (Sharing)' : (_peerNames[peerId] || 'Peer')}`;
+    overlayTop.appendChild(label);
+
+    // Bottom: fullscreen button
+    const overlayBottom = document.createElement('div');
+    overlayBottom.className = 'overlay-bottom';
     const fsBtn = document.createElement('button');
+    fsBtn.className = 'room-screen-fs-btn';
     fsBtn.title = 'Toggle Fullscreen';
-    fsBtn.style.cssText = 'position:absolute;bottom:40px;right:10px;background:rgba(18,18,18,0.75);border:1px solid rgba(245,245,245,0.2);color:#f5f5f5;border-radius:4px;padding:6px 10px;cursor:pointer;z-index:10;font-size:0.85rem;display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px);transition:background 0.2s;';
     fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i> Fullscreen';
-    fsBtn.addEventListener('mouseenter', () => fsBtn.style.background = 'rgba(245,245,245,0.15)');
-    fsBtn.addEventListener('mouseleave', () => fsBtn.style.background = 'rgba(18,18,18,0.75)');
     fsBtn.addEventListener('click', () => {
-      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        (wrapper.requestFullscreen ? wrapper.requestFullscreen() : wrapper.webkitRequestFullscreen?.())
-          .then(() => { fsBtn.innerHTML = '<i class="fa-solid fa-compress"></i> Exit'; })
-          .catch(() => {});
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      if (!isFs) {
+        const req = wrapper.requestFullscreen?.() || wrapper.webkitRequestFullscreen?.();
+        if (req) req.then(() => { fsBtn.innerHTML = '<i class="fa-solid fa-compress"></i> Exit Full'; }).catch(() => {});
       } else {
-        (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen?.())
-          .then(() => { fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i> Fullscreen'; })
-          .catch(() => {});
+        const ex = document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+        if (ex) ex.then(() => { fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i> Fullscreen'; }).catch(() => {});
       }
     });
     document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i> Fullscreen';
-      }
-    }, { once: false });
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      fsBtn.innerHTML = isFs ? '<i class="fa-solid fa-compress"></i> Exit Full' : '<i class="fa-solid fa-expand"></i> Fullscreen';
+    });
+    overlayBottom.appendChild(fsBtn);
 
-    const label = document.createElement('div');
-    label.className = 'room-screen-label';
-    label.textContent = peerId === user.id ? 'You (Sharing)' : (_peerNames[peerId] || 'Peer');
+    overlay.appendChild(overlayTop);
+    overlay.appendChild(overlayBottom);
+
+    // Auto-hide: show overlay on interaction, hide after 3s
+    let hideTimer = null;
+    function showOverlay() {
+      overlay.classList.remove('hidden');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => overlay.classList.add('hidden'), 3000);
+    }
+    showOverlay(); // show initially then fade
+    wrapper.addEventListener('mousemove', showOverlay);
+    wrapper.addEventListener('mouseenter', showOverlay);
+    wrapper.addEventListener('touchstart', showOverlay, { passive: true });
 
     wrapper.appendChild(vid);
-    wrapper.appendChild(label);
-    wrapper.appendChild(fsBtn);
+    wrapper.appendChild(overlay);
     view.appendChild(wrapper);
   }
+
 
   async function handleWebRTCSignal(sig) {
     if (sig.type === 'join-call' && _inCall && sig.from !== user.id) {
