@@ -3,6 +3,9 @@ import { router } from '../router.js';
 import { supabase } from '../utils/supabase.js';
 import gsap from 'gsap';
 import anime from 'animejs/lib/anime.es.js';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import UnicornScene from 'unicornstudio-react';
 
 /* ── navigate to login with correct tab ── */
 function goTo(tab) {
@@ -276,15 +279,8 @@ export async function renderLandingPage() {
       </div>
     </div>
 
-    <!-- RIGHT: ab2 as <img> — reliable full-figure display -->
-    <div class="hero-ab2-wrap">
-      <div class="hero-ab2-glow"></div>
-      <img
-        class="hero-ab2-img"
-        src="/ab2.svg"
-        alt="Scholar Nexus Hero Visual"
-        draggable="false"
-      />
+    <!-- RIGHT: Unicorn Studio Scene -->
+    <div class="hero-ab2-wrap" id="hero-unicorn-container">
     </div>
 
     <div class="hero-scroll-hint"><span class="scroll-line"></span>Scroll to explore</div>
@@ -442,11 +438,24 @@ export async function renderLandingPage() {
   gsap.fromTo('.hero-actions',        { opacity:0, y:20  }, { opacity:1, y:0, duration:.6,  delay:.6, ease:'power3.out' });
   gsap.fromTo('.hero-scroll-hint',    { opacity:0        }, { opacity:1,      duration:.8,  delay:1.2  });
 
-  /* ab2 entrance */
+  /* ab2 wrap entrance */
   gsap.fromTo('.hero-ab2-wrap', { opacity:0, x:50 }, { opacity:1, x:0, duration:1.1, delay:.2, ease:'power3.out' });
 
-  /* ab2 continuous float */
-  gsap.to('.hero-ab2-img', { y:-18, duration:6, repeat:-1, yoyo:true, ease:'sine.inOut', delay:1 });
+  /* ── Mount Unicorn Studio React Component ── */
+  const unicornContainer = document.getElementById('hero-unicorn-container');
+  if (unicornContainer) {
+    const root = createRoot(unicornContainer);
+    root.render(
+      createElement(UnicornScene, {
+        projectId: "1zyjUnKUVXGvDI6DwqAi",
+        width: "100%",
+        height: "100%",
+        scale: 1,
+        dpi: 1.5,
+        sdkUrl: "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@2.1.11/dist/unicornStudio.umd.js"
+      })
+    );
+  }
 
   /* ── anime.js button animations ── */
   initButtonAnimations();

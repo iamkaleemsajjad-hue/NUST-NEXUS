@@ -19,12 +19,11 @@
 .hero-bg-gradient { position:absolute; inset:0; background:radial-gradient(ellipse 50% 100% at 25% 50%, rgba(10,10,10,0) 0%, #000 70%); pointer-events:none; z-index:2; }
 #landing-canvas { position:absolute; inset:0; z-index:1; pointer-events:none; }
 
-/* ── RIGHT: VR Figure (ab2.svg) ── */
+/* ── RIGHT: VR Figure (ab2.svg) / Unicorn Scene ── */
 .hero-ab2-wrap {
   position:absolute; right:0; top:0; width:50%; height:100%;
   z-index:3; overflow:hidden;
   display:flex; align-items:center; justify-content:center;
-  pointer-events:none;
 }
 .hero-ab2-img {
   width:100%;
