@@ -115,7 +115,7 @@ export async function renderIdeaRoomPage() {
                 <div class="room-call-controls" style="flex-wrap:wrap;gap:8px;">
                   <button class="btn btn-primary" id="start-screen-btn"><i class="fa-solid fa-display"></i> Share My Screen</button>
                   <button class="btn btn-danger" id="stop-screen-btn" style="display:none;"><i class="fa-solid fa-stop"></i> Stop Sharing</button>
-                  <button class="btn btn-secondary" id="view-screen-btn" style="display:none;"><i class="fa-solid fa-eye"></i> View Shared Screen</button>
+                  <button class="btn btn-secondary" id="view-screen-btn" style="display:none;border-color:var(--primary);color:var(--primary);"><i class="fa-solid fa-eye"></i> View Shared Screen</button>
                 </div>
                 <div class="room-screen-view" id="screen-view">
                   <div class="empty-state"><i class="fa-solid fa-display"></i><p>No one is sharing their screen</p></div>
@@ -123,12 +123,13 @@ export async function renderIdeaRoomPage() {
               </div>
 
               <!-- Screen Share Join Banner (floats above all tabs) -->
-              <div id="screen-share-banner" style="display:none;position:absolute;top:48px;left:0;right:0;z-index:100;background:linear-gradient(135deg,var(--primary),#7c3aed);padding:12px 20px;align-items:center;justify-content:space-between;gap:12px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-                <div style="display:flex;align-items:center;gap:10px;color:#fff;">
-                  <i class="fa-solid fa-display" style="font-size:1.2rem;"></i>
-                  <span id="screen-share-banner-text" style="font-weight:600;">Someone is sharing their screen</span>
+              <div id="screen-share-banner" style="display:none;position:absolute;top:48px;left:0;right:0;z-index:100;background:var(--bg-card);border-bottom:2px solid var(--primary);padding:10px 16px;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+                <div style="display:flex;align-items:center;gap:10px;color:var(--text-primary);">
+                  <i class="fa-solid fa-circle" style="font-size:0.6rem;color:#ff3b5c;animation:pulse 1.5s ease-in-out infinite;"></i>
+                  <i class="fa-solid fa-display" style="font-size:1rem;color:var(--text-primary);"></i>
+                  <span id="screen-share-banner-text" style="font-weight:600;font-size:0.9rem;">Someone is sharing their screen</span>
                 </div>
-                <button class="btn" id="join-screen-btn" style="background:#fff;color:var(--primary);font-weight:700;padding:8px 20px;border-radius:8px;"><i class="fa-solid fa-eye"></i> View Screen</button>
+                <button class="btn btn-primary btn-sm" id="join-screen-btn"><i class="fa-solid fa-eye"></i> View Screen</button>
               </div>
             </div>
           </div>
@@ -411,7 +412,9 @@ export async function renderIdeaRoomPage() {
       }
     };
     pc.ontrack = (e) => {
-      addScreenElement(peerId, e.streams[0]);
+      // Gracefully handle cases where streams array might be empty
+      const stream = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
+      addScreenElement(peerId, stream);
     };
     return pc;
   }
@@ -427,23 +430,67 @@ export async function renderIdeaRoomPage() {
   }
 
   function addScreenElement(peerId, stream) {
+    // Auto-switch to screen tab when a stream arrives for a remote peer
+    if (peerId !== user.id) switchToScreenTab();
+    hideScreenShareBanner();
+
     const view = document.getElementById('screen-view');
     const existingEmpty = view.querySelector('.empty-state');
     if (existingEmpty) existingEmpty.remove();
+
     let wrapper = document.getElementById(`screen-${peerId}`);
-    if (wrapper) { wrapper.querySelector('video').srcObject = stream; return; }
+    if (wrapper) {
+      const v = wrapper.querySelector('video');
+      if (v) { v.srcObject = stream; v.play().catch(() => {}); }
+      return;
+    }
+
     wrapper = document.createElement('div');
     wrapper.className = 'room-screen-item';
     wrapper.id = `screen-${peerId}`;
+    wrapper.style.cssText = 'position:relative;width:100%;';
+
     const vid = document.createElement('video');
     vid.srcObject = stream;
     vid.autoplay = true;
     vid.playsInline = true;
-    wrapper.appendChild(vid);
+    // Mute local preview to avoid feedback; remote streams play with audio
+    if (peerId === user.id) vid.muted = true;
+    vid.style.cssText = 'width:100%;max-height:72vh;object-fit:contain;background:#000;display:block;border-radius:4px;';
+    // Force play once metadata is ready (required on some mobile/desktop browsers)
+    vid.addEventListener('loadedmetadata', () => vid.play().catch(() => {}));
+
+    // ── Fullscreen button ──
+    const fsBtn = document.createElement('button');
+    fsBtn.title = 'Toggle Fullscreen';
+    fsBtn.style.cssText = 'position:absolute;bottom:40px;right:10px;background:rgba(18,18,18,0.75);border:1px solid rgba(245,245,245,0.2);color:#f5f5f5;border-radius:4px;padding:6px 10px;cursor:pointer;z-index:10;font-size:0.85rem;display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px);transition:background 0.2s;';
+    fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i> Fullscreen';
+    fsBtn.addEventListener('mouseenter', () => fsBtn.style.background = 'rgba(245,245,245,0.15)');
+    fsBtn.addEventListener('mouseleave', () => fsBtn.style.background = 'rgba(18,18,18,0.75)');
+    fsBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        (wrapper.requestFullscreen ? wrapper.requestFullscreen() : wrapper.webkitRequestFullscreen?.())
+          .then(() => { fsBtn.innerHTML = '<i class="fa-solid fa-compress"></i> Exit'; })
+          .catch(() => {});
+      } else {
+        (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen?.())
+          .then(() => { fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i> Fullscreen'; })
+          .catch(() => {});
+      }
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i> Fullscreen';
+      }
+    }, { once: false });
+
     const label = document.createElement('div');
     label.className = 'room-screen-label';
-    label.textContent = peerId === user.id ? 'You' : (_peerNames[peerId] || 'Peer');
+    label.textContent = peerId === user.id ? 'You (Sharing)' : (_peerNames[peerId] || 'Peer');
+
+    wrapper.appendChild(vid);
     wrapper.appendChild(label);
+    wrapper.appendChild(fsBtn);
     view.appendChild(wrapper);
   }
 
@@ -605,7 +652,7 @@ export async function renderIdeaRoomPage() {
   function requestScreenFromSharer() {
     if (!_activeScreenSharer) { showToast('No active screen share found.', 'warning'); return; }
     switchToScreenTab();
-    hideScreenShareBanner();
+    // Keep banner visible until the stream actually arrives (addScreenElement will hide it)
     _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-request', from: user.id, target: _activeScreenSharer } });
     showToast('Connecting to screen share...', 'info');
   }
@@ -616,8 +663,13 @@ export async function renderIdeaRoomPage() {
   document.getElementById('view-screen-btn')?.addEventListener('click', requestScreenFromSharer);
 
   document.getElementById('start-screen-btn')?.addEventListener('click', async () => {
+    // Detect if getDisplayMedia is supported (desktop browsers only)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      showToast('Screen sharing is not supported on this device. Please use a desktop browser (Chrome, Edge, Firefox).', 'warning');
+      return;
+    }
     try {
-      _screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      _screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true });
       addScreenElement(user.id, _screenStream);
       document.getElementById('start-screen-btn').style.display = 'none';
       document.getElementById('stop-screen-btn').style.display = '';
@@ -625,7 +677,13 @@ export async function renderIdeaRoomPage() {
       _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-share', from: user.id, target: 'all' } });
       _screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
     } catch (e) {
-      showToast('Screen share cancelled', 'warning');
+      if (e.name === 'NotSupportedError') {
+        showToast('Screen sharing is not supported on your device. Please use a desktop browser.', 'warning');
+      } else if (e.name === 'NotAllowedError') {
+        showToast('Screen share permission denied. Please allow screen sharing in your browser settings.', 'warning');
+      } else if (e.name !== 'AbortError') {
+        showToast('Screen share failed: ' + e.message, 'warning');
+      }
     }
   });
 
