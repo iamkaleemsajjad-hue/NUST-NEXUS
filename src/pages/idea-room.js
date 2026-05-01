@@ -9,9 +9,11 @@ import gsap from 'gsap';
 
 let _roomChannel = null;
 let _peerConnections = {};
+let _earlyCandidates = {};
 let _localStream = null;
 let _screenStream = null;
 let _screenPeerConnections = {};
+let _earlyScreenCandidates = {};
 let _currentSessionId = null;
 
 const ICE_SERVERS = [
@@ -110,9 +112,10 @@ export async function renderIdeaRoomPage() {
 
               <!-- Screen Share Tab -->
               <div class="room-tab-content" id="tab-screen">
-                <div class="room-call-controls">
+                <div class="room-call-controls" style="flex-wrap:wrap;gap:8px;">
                   <button class="btn btn-primary" id="start-screen-btn"><i class="fa-solid fa-display"></i> Share My Screen</button>
                   <button class="btn btn-danger" id="stop-screen-btn" style="display:none;"><i class="fa-solid fa-stop"></i> Stop Sharing</button>
+                  <button class="btn btn-secondary" id="view-screen-btn" style="display:none;"><i class="fa-solid fa-eye"></i> View Shared Screen</button>
                 </div>
                 <div class="room-screen-view" id="screen-view">
                   <div class="empty-state"><i class="fa-solid fa-display"></i><p>No one is sharing their screen</p></div>
@@ -120,7 +123,7 @@ export async function renderIdeaRoomPage() {
               </div>
 
               <!-- Screen Share Join Banner (floats above all tabs) -->
-              <div id="screen-share-banner" style="display:none;position:absolute;top:48px;left:0;right:0;z-index:100;background:linear-gradient(135deg,var(--primary),#7c3aed);padding:12px 20px;display:none;align-items:center;justify-content:space-between;gap:12px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+              <div id="screen-share-banner" style="display:none;position:absolute;top:48px;left:0;right:0;z-index:100;background:linear-gradient(135deg,var(--primary),#7c3aed);padding:12px 20px;align-items:center;justify-content:space-between;gap:12px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
                 <div style="display:flex;align-items:center;gap:10px;color:#fff;">
                   <i class="fa-solid fa-display" style="font-size:1.2rem;"></i>
                   <span id="screen-share-banner-text" style="font-weight:600;">Someone is sharing their screen</span>
@@ -454,44 +457,57 @@ export async function renderIdeaRoomPage() {
       if (!_inCall) await startCall(true);
       const pc = await createPeerConnection(sig.from);
       await pc.setRemoteDescription(new RTCSessionDescription(sig.offer));
+      if (_earlyCandidates[sig.from]) {
+        for (let c of _earlyCandidates[sig.from]) await pc.addIceCandidate(c);
+        delete _earlyCandidates[sig.from];
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'answer', answer, from: user.id, target: sig.from } });
     } else if (sig.type === 'answer') {
       const pc = _peerConnections[sig.from];
-      if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sig.answer));
+      if (pc) {
+        await pc.setRemoteDescription(new RTCSessionDescription(sig.answer));
+        if (_earlyCandidates[sig.from]) {
+          for (let c of _earlyCandidates[sig.from]) await pc.addIceCandidate(c);
+          delete _earlyCandidates[sig.from];
+        }
+      }
     } else if (sig.type === 'ice-candidate') {
       const pc = _peerConnections[sig.from];
-      if (pc) await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));
+      if (pc && pc.remoteDescription) {
+        await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));
+      } else {
+        if (!_earlyCandidates[sig.from]) _earlyCandidates[sig.from] = [];
+        _earlyCandidates[sig.from].push(new RTCIceCandidate(sig.candidate));
+      }
     } else if (sig.type === 'announce-name') {
       if (sig.from && sig.name) _peerNames[sig.from] = sig.name;
       const lbl = document.querySelector(`#video-${sig.from} .room-video-label`);
       if (lbl) lbl.textContent = sig.name;
+      if (_screenStream) {
+        _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-share', from: user.id, target: sig.from } });
+      }
     } else if (sig.type === 'screen-share' && sig.from !== user.id) {
       // Someone started sharing — show the join banner
-      _activeScreenSharer = sig.from;
-      const banner = document.getElementById('screen-share-banner');
-      const bannerText = document.getElementById('screen-share-banner-text');
-      if (banner) {
-        bannerText.textContent = `${_peerNames[sig.from] || 'Someone'} is sharing their screen`;
-        banner.style.display = 'flex';
-      }
+      showScreenShareBanner(sig.from);
       showToast(`${_peerNames[sig.from] || 'Someone'} started sharing their screen! Click "View Screen" to watch.`, 'info');
     } else if (sig.type === 'screen-stop' && sig.from !== user.id) {
       // Someone stopped sharing — hide banner and remove video
-      _activeScreenSharer = null;
-      const banner = document.getElementById('screen-share-banner');
-      if (banner) banner.style.display = 'none';
+      hideScreenShareBanner();
       const el = document.getElementById(`screen-${sig.from}`);
       if (el) el.remove();
       const key = `screen-${sig.from}`;
       if (_screenPeerConnections[key]) { _screenPeerConnections[key].close(); delete _screenPeerConnections[key]; }
+      if (_earlyScreenCandidates[sig.from]) delete _earlyScreenCandidates[sig.from];
       const view = document.getElementById('screen-view');
       if (view && !view.querySelector('.room-screen-item')) {
         view.innerHTML = '<div class="empty-state"><i class="fa-solid fa-display"></i><p>No one is sharing their screen</p></div>';
       }
       showToast('Screen sharing ended', 'info');
-    } else if (sig.type === 'screen-request' && sig.from !== user.id && _screenStream) {
+    } else if (sig.type === 'screen-request' && sig.from !== user.id) {
+      // A viewer wants our screen — only respond if we are actually sharing
+      if (!_screenStream) { console.warn('screen-request ignored: not sharing'); return; }
       // A viewer wants our screen — send them an offer
       try {
         const pc = await createScreenPeerConnection(sig.from, true);
@@ -503,6 +519,10 @@ export async function renderIdeaRoomPage() {
       try {
         const pc = await createScreenPeerConnection(sig.from, false);
         await pc.setRemoteDescription(new RTCSessionDescription(sig.offer));
+        if (_earlyScreenCandidates[sig.from]) {
+          for (let c of _earlyScreenCandidates[sig.from]) await pc.addIceCandidate(c);
+          delete _earlyScreenCandidates[sig.from];
+        }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-answer', answer, from: user.id, target: sig.from } });
@@ -510,14 +530,26 @@ export async function renderIdeaRoomPage() {
     } else if (sig.type === 'screen-answer' && sig.target === user.id) {
       const pc = _screenPeerConnections[`screen-${sig.from}`];
       if (pc) {
-        try { await pc.setRemoteDescription(new RTCSessionDescription(sig.answer)); }
+        try { 
+          await pc.setRemoteDescription(new RTCSessionDescription(sig.answer)); 
+          if (_earlyScreenCandidates[sig.from]) {
+            for (let c of _earlyScreenCandidates[sig.from]) await pc.addIceCandidate(c);
+            delete _earlyScreenCandidates[sig.from];
+          }
+        }
         catch (e) { console.error('Error handling screen answer:', e); }
       }
     } else if (sig.type === 'screen-ice') {
-      const pc = _screenPeerConnections[`screen-${sig.from}`];
-      if (pc) {
+      // KEY FIX: use sig.from as the queue key (not `screen-${sig.from}`)
+      const pcKey = `screen-${sig.from}`;
+      const pc = _screenPeerConnections[pcKey];
+      if (pc && pc.remoteDescription) {
         try { await pc.addIceCandidate(new RTCIceCandidate(sig.candidate)); }
         catch (e) { console.error('Error adding screen ICE:', e); }
+      } else {
+        // Queue under sig.from so it matches the drain keys in screen-offer/screen-answer handlers
+        if (!_earlyScreenCandidates[sig.from]) _earlyScreenCandidates[sig.from] = [];
+        _earlyScreenCandidates[sig.from].push(new RTCIceCandidate(sig.candidate));
       }
     }
   }
@@ -527,6 +559,7 @@ export async function renderIdeaRoomPage() {
     if (_localStream) { _localStream.getTracks().forEach(t => t.stop()); _localStream = null; }
     Object.values(_peerConnections).forEach(pc => pc.close());
     _peerConnections = {};
+    _earlyCandidates = {};
     document.getElementById('video-grid').innerHTML = '';
     document.getElementById('start-call-btn').style.display = '';
     document.getElementById('end-call-btn').style.display = 'none';
@@ -552,18 +585,35 @@ export async function renderIdeaRoomPage() {
   // ── Screen Sharing ──
   let _activeScreenSharer = null;
 
-  // "View Screen" button — viewer requests the screen from the sharer
-  document.getElementById('join-screen-btn')?.addEventListener('click', async () => {
-    if (!_activeScreenSharer) return;
-    // Switch to Screen Share tab
-    switchToScreenTab();
-    // Hide the banner
+  function showScreenShareBanner(sharerId) {
+    _activeScreenSharer = sharerId;
+    const banner = document.getElementById('screen-share-banner');
+    const bannerText = document.getElementById('screen-share-banner-text');
+    const viewBtn = document.getElementById('view-screen-btn');
+    if (banner) { bannerText.textContent = `${_peerNames[sharerId] || 'Someone'} is sharing their screen`; banner.style.display = 'flex'; }
+    if (viewBtn) viewBtn.style.display = '';
+  }
+
+  function hideScreenShareBanner() {
+    _activeScreenSharer = null;
     const banner = document.getElementById('screen-share-banner');
     if (banner) banner.style.display = 'none';
-    // Request the screen stream from the sharer via signaling
+    const viewBtn = document.getElementById('view-screen-btn');
+    if (viewBtn) viewBtn.style.display = 'none';
+  }
+
+  function requestScreenFromSharer() {
+    if (!_activeScreenSharer) { showToast('No active screen share found.', 'warning'); return; }
+    switchToScreenTab();
+    hideScreenShareBanner();
     _roomChannel.send({ type: 'broadcast', event: 'webrtc-signal', payload: { type: 'screen-request', from: user.id, target: _activeScreenSharer } });
     showToast('Connecting to screen share...', 'info');
-  });
+  }
+
+  // Banner "View Screen" button
+  document.getElementById('join-screen-btn')?.addEventListener('click', requestScreenFromSharer);
+  // Tab "View Shared Screen" button
+  document.getElementById('view-screen-btn')?.addEventListener('click', requestScreenFromSharer);
 
   document.getElementById('start-screen-btn')?.addEventListener('click', async () => {
     try {
@@ -585,6 +635,7 @@ export async function renderIdeaRoomPage() {
       if (key.startsWith('screen-')) { pc.close(); }
     });
     _screenPeerConnections = {};
+    _earlyScreenCandidates = {};
     const el = document.getElementById(`screen-${user.id}`);
     if (el) el.remove();
     document.getElementById('start-screen-btn').style.display = '';
