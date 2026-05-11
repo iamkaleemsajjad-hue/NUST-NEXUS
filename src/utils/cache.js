@@ -106,22 +106,26 @@ export function bustCache(keyOrPrefix) {
     return;
   }
 
-  // Exact match
-  if (_memoryCache.has(keyOrPrefix)) {
-    _memoryCache.delete(keyOrPrefix);
-    try { sessionStorage.removeItem(`sn_cache_${keyOrPrefix}`); } catch (e) { /* ignore */ }
-    return;
-  }
-
-  // Prefix match — bust all keys starting with this prefix
+  // Sweep memory cache — remove exact match AND all prefix matches
   const toDelete = [];
   for (const k of _memoryCache.keys()) {
-    if (k.startsWith(keyOrPrefix)) toDelete.push(k);
+    if (k === keyOrPrefix || k.startsWith(keyOrPrefix)) toDelete.push(k);
   }
   toDelete.forEach(k => {
     _memoryCache.delete(k);
     try { sessionStorage.removeItem(`sn_cache_${k}`); } catch (e) { /* ignore */ }
   });
+
+  // Also sweep sessionStorage for entries that may not be in memory
+  try {
+    const ssPrefix = `sn_cache_${keyOrPrefix}`;
+    const ssKeysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith(ssPrefix)) ssKeysToRemove.push(k);
+    }
+    ssKeysToRemove.forEach(k => sessionStorage.removeItem(k));
+  } catch (e) { /* ignore */ }
 }
 
 /**

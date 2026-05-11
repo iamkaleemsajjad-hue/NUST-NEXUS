@@ -115,8 +115,10 @@ router.beforeEach = async (to) => {
     router.navigate('/login');
     return false;
   }
-  // Cache for 60s — the auth guard won't re-call getUser for 1 min
+  // Warm BOTH auth cache keys so getCurrentUser() in page handlers
+  // gets an instant hit and doesn't call getUser() again.
   setCache('auth_guard_user', user, 60000);
+  setCache('auth_current_user', user, 30000);
   return true;
 };
 
@@ -302,24 +304,63 @@ function initAbsoluteSessionTimeout() {
 }
 
 // ── Tab Presence Logic ──
-// When the user switches back to this tab, bust stale caches and re-render
-// the current page so data loads fresh WITHOUT needing a manual refresh.
+// When the user switches back to this tab, bust stale data caches,
+// re-warm auth caches from the existing session, and re-render the page.
+// This ensures pages only make their OWN data API calls (no redundant auth).
 let _lastVisibleTime = Date.now();
+let _tabRefreshInProgress = false;
+
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible') {
     const away = Date.now() - _lastVisibleTime;
-    // Check if session is still valid
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session && window.location.hash !== '#/login' && window.location.hash !== '#/') {
-      router.navigate('/login');
-      return;
-    }
-    // If user was away for more than 30 seconds, bust caches and re-render
-    if (session && away > 30000) {
+
+    // Skip if user was away less than 3 seconds (quick alt-tab)
+    if (away < 3000) return;
+
+    // Skip for public routes — no data to refresh
+    const currentHash = window.location.hash;
+    if (!currentHash || currentHash === '#/' || currentHash === '#/login') return;
+
+    // Prevent duplicate refreshes if the handler is already running
+    if (_tabRefreshInProgress) return;
+    _tabRefreshInProgress = true;
+
+    try {
+      // 1. Validate the session is still alive (single network call)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.navigate('/login');
+        return;
+      }
+
+      // 2. Bust ALL data caches
       bustCache('all');
-      router.handleRoute(); // Re-renders the current page with fresh data
+
+      // 3. Immediately re-warm auth caches from the session we already have.
+      //    This prevents redundant getUser() calls during the page re-render.
+      const user = session.user;
+      setCache('auth_current_user', user, 30000);
+      setCache('auth_guard_user', user, 60000);
+
+      // 4. Pre-fetch and cache the user profile so page handlers don't wait for it.
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (profile) {
+        setCache(`auth_profile_${user.id}`, profile, 60000);
+      }
+
+      // 5. Re-render the current page — auth is pre-warmed, so ONLY page data APIs fire.
+      await router.handleRoute();
+    } catch (err) {
+      console.warn('[tab-switch] Error refreshing:', err);
+    } finally {
+      _tabRefreshInProgress = false;
     }
   } else {
+    // Record the time the user left this tab
     _lastVisibleTime = Date.now();
   }
 });
