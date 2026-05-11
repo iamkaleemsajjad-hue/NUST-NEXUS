@@ -6,6 +6,7 @@ import { supabase } from '../utils/supabase.js';
 import { sanitizeText, validateFields, pickAllowedFields, escapeHtml, checkRateLimit } from '../utils/sanitize.js';
 import { router } from '../router.js';
 import { POINTS } from '../config.js';
+import { getCached, setCache, bustCache } from '../utils/cache.js';
 import gsap from 'gsap';
 
 export async function renderIdeasPage() {
@@ -184,6 +185,7 @@ export async function renderIdeasPage() {
         showToast('Idea submitted! It is now pending admin approval.', 'success');
         document.getElementById('idea-form-card').style.display = 'none';
         document.getElementById('idea-form').reset();
+        bustCache('ideas_');
         loadIdeas(profile);
       }
       submitBtn.disabled = false;
@@ -196,16 +198,30 @@ export async function renderIdeasPage() {
 
 async function loadIdeas(profile) {
   const container = document.getElementById('ideas-list');
-  
-  const [ideasResult, roomsResult, myMembershipsResult] = await Promise.all([
-    supabase.from('project_ideas').select('*, profiles(display_name), idea_ratings(user_id, rating)').order('created_at', { ascending: false }),
-    supabase.from('idea_rooms').select('*, room_members(user_id)'),
-    supabase.from('room_members').select('room_id').eq('user_id', profile.id)
-  ]);
+  const cacheKey = 'ideas_list_all';
+  const cached = getCached(cacheKey);
 
-  const data = ideasResult.data;
-  const rooms = roomsResult.data || [];
-  const myMemberships = (myMembershipsResult.data || []).map(m => m.room_id);
+  let data, rooms, myMemberships;
+
+  if (cached) {
+    data = cached.data;
+    rooms = cached.rooms;
+    myMemberships = cached.myMemberships;
+  } else {
+    const [ideasResult, roomsResult, myMembershipsResult] = await Promise.all([
+      supabase.from('project_ideas').select('*, profiles(display_name), idea_ratings(user_id, rating)').order('created_at', { ascending: false }),
+      supabase.from('idea_rooms').select('*, room_members(user_id)'),
+      supabase.from('room_members').select('room_id').eq('user_id', profile.id)
+    ]);
+
+    data = ideasResult.data;
+    rooms = roomsResult.data || [];
+    myMemberships = (myMembershipsResult.data || []).map(m => m.room_id);
+
+    if (data) {
+      setCache(cacheKey, { data, rooms, myMemberships }, 180000); // 3 min
+    }
+  }
 
   // Build room lookup by idea_id
   const roomByIdea = {};

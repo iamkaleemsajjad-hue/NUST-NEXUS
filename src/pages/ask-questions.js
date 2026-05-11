@@ -6,6 +6,7 @@ import { supabase } from '../utils/supabase.js';
 import { sanitizeText, escapeHtml, checkRateLimit } from '../utils/sanitize.js';
 import { router } from '../router.js';
 import { POINTS } from '../config.js';
+import { getCached, setCache, bustCache } from '../utils/cache.js';
 
 const SUBJECT_TAGS = ['DLD', 'OOP', 'Calculus', 'DSA', 'OS', 'DBMS', 'Networks', 'Physics', 'Math', 'Linear Algebra', 'Probability', 'Other'];
 const AUTO_ACCEPT_DAYS = 14; // After 14 days, highest-voted answer is auto-accepted
@@ -246,6 +247,15 @@ function addPanelFooterStyles() {
 // ── QUESTION LOADING ──────────────────────────────────────────
 
 async function loadQuestions() {
+  const cacheKey = 'qa_questions_all';
+  const cached = getCached(cacheKey);
+
+  if (cached) {
+    _questions = cached;
+    renderQuestionList();
+    return;
+  }
+
   const { data, error } = await supabase
     .from('questions')
     .select(`
@@ -259,6 +269,8 @@ async function loadQuestions() {
 
   if (error) { console.error('loadQuestions:', error); return; }
   _questions = data || [];
+
+  setCache(cacheKey, _questions, 120000); // 2 min
 
   // Run auto-accept check silently in background
   autoAcceptOldQuestions(_questions);
@@ -441,18 +453,31 @@ async function openQuestion(questionId) {
     };
   }
 
-  const { data: answers } = await supabase
-    .from('question_answers')
-    .select(`
-      *,
-      profiles:user_id (id, display_name),
-      answer_upvotes (user_id),
-      answer_replies (*, profiles:user_id (display_name))
-    `)
-    .eq('question_id', questionId)
-    .eq('is_deleted', false)
-    .order('is_accepted', { ascending: false })
-    .order('created_at', { ascending: true });
+  const cacheKey = `qa_answers_${questionId}`;
+  const cachedAnswers = getCached(cacheKey);
+
+  let answers, aError;
+  if (cachedAnswers) {
+    answers = cachedAnswers;
+  } else {
+    const { data, error } = await supabase
+      .from('question_answers')
+      .select(`
+        *,
+        profiles:user_id (id, display_name),
+        answer_upvotes (user_id),
+        answer_replies (*, profiles:user_id (display_name))
+      `)
+      .eq('question_id', questionId)
+      .eq('is_deleted', false)
+      .order('is_accepted', { ascending: false })
+      .order('created_at', { ascending: true });
+    answers = data;
+    aError = error;
+    if (!aError && answers) setCache(cacheKey, answers, 60000); // 1 min cache for answers
+  }
+
+  if (aError) { console.error('openQuestion answers:', aError); }
 
   if (answers) {
     answers.sort((a, b) => {
@@ -661,6 +686,7 @@ async function handleAskQuestion(e) {
   if (error) { showToast('Error posting question: ' + error.message, 'error'); return; }
 
   showToast('Question posted!', 'success');
+  bustCache('qa_questions_all');
   document.getElementById('qa-ask-modal').style.display = 'none';
   document.getElementById('qa-ask-form').reset();
   document.querySelectorAll('#q-tag-selector .tag-pill').forEach(p => p.classList.remove('active'));
@@ -702,6 +728,7 @@ async function handlePostAnswer(questionId) {
   if (error) { showToast('Error posting answer: ' + error.message, 'error'); return; }
 
   showToast('Answer posted!', 'success');
+  bustCache(`qa_answers_${questionId}`);
   textarea.value = '';
   textarea.style.height = 'auto';
   await loadQuestions();

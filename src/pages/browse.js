@@ -8,6 +8,7 @@ import { router } from '../router.js';
 import { UPLOAD_TYPES } from '../config.js';
 import { escapeHtml, sanitizeText, checkRateLimit } from '../utils/sanitize.js';
 import { subscribeToTable } from '../utils/realtime.js';
+import { getCached, setCache, bustCache } from '../utils/cache.js';
 import gsap from 'gsap';
 
 let _browseProfile = null;
@@ -22,7 +23,7 @@ export async function renderBrowsePage() {
 
   const adminUser = profile.role === 'admin';
   const semester = calculateSemester(profile.admission_year);
-  const accessibleSemesters = adminUser ? [1,2,3,4,5,6,7,8] : getAccessibleSemesters(semester);
+  const accessibleSemesters = adminUser ? [1, 2, 3, 4, 5, 6, 7, 8] : getAccessibleSemesters(semester);
 
   app.innerHTML = `
     <div class="app-layout">
@@ -69,13 +70,18 @@ export async function renderBrowsePage() {
 
   initSidebar(); initHeader(profile); setBreadcrumb('Browse Resources');
 
-  document.getElementById('filter-btn')?.addEventListener('click', () => loadResources(profile, accessibleSemesters));
-  
-  // Debounced search
+  // Filter button: force load with caching (cacheKey handles filters)
+  document.getElementById('filter-btn')?.addEventListener('click', () => {
+    loadResources(profile, accessibleSemesters);
+  });
+
+  // Debounced search — use caching (cacheKey handles search text)
   let searchTimer;
   document.getElementById('filter-search')?.addEventListener('input', () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => loadResources(profile, accessibleSemesters), 400);
+    searchTimer = setTimeout(() => {
+      loadResources(profile, accessibleSemesters);
+    }, 400);
   });
 
   loadResources(profile, accessibleSemesters);
@@ -86,6 +92,7 @@ export async function renderBrowsePage() {
 
   // Real-time: auto-refresh when uploads change
   subscribeToTable('browse-uploads', 'uploads', 'status=eq.approved', () => {
+    bustCache('browse_');
     loadResources(profile, accessibleSemesters);
   });
 }
@@ -97,33 +104,53 @@ async function loadResources(profile, accessibleSemesters) {
   const searchFilter = sanitizeText(document.getElementById('filter-search').value, 200);
   const adminUser = profile.role === 'admin';
 
-  container.innerHTML = '<div class="skeleton skeleton-card" style="height:300px;"></div>';
+  // Build cache key from current filter state
+  const cacheKey = `browse_resources_${semesterFilter}_${typeFilter}_${searchFilter}`;
+  const cached = getCached(cacheKey);
 
-  // Fetch resources, ratings, and votes in parallel
-  const [resourcesResult, ratingsResult, votesResult] = await Promise.all([
-    (async () => {
-      let query = supabase.from('uploads')
-        .select('*, profiles(display_name), courses(name, code, semester)')
-        .eq('status', 'approved')
-        .neq('is_deleted', true)
-        .order('created_at', { ascending: false });
+  let data, allRatings, allVotes, error;
 
-      if (semesterFilter) {
-        query = query.eq('semester', parseInt(semesterFilter));
-      } else if (!adminUser) {
-        query = query.in('semester', accessibleSemesters);
-      }
-      if (typeFilter) query = query.eq('type', typeFilter);
-      if (searchFilter) query = query.ilike('title', `%${searchFilter}%`);
-      return query;
-    })(),
-    supabase.from('upload_ratings').select('upload_id, stars, user_id'),
-    supabase.from('upload_upvotes').select('upload_id, user_id, vote_type')
-  ]);
+  if (cached) {
+    // Serve from cache — zero API calls!
+    data = cached.data;
+    allRatings = cached.allRatings;
+    allVotes = cached.allVotes;
+    error = null;
+  } else {
+    container.innerHTML = '<div class="skeleton skeleton-card" style="height:300px;"></div>';
 
-  const { data, error } = resourcesResult;
-  const allRatings = ratingsResult.data || [];
-  const allVotes = votesResult.data || [];
+    // Fetch resources, ratings, and votes in parallel
+    const [resourcesResult, ratingsResult, votesResult] = await Promise.all([
+      (async () => {
+        let query = supabase.from('uploads')
+          .select('*, profiles(display_name), courses(name, code, semester)')
+          .eq('status', 'approved')
+          .neq('is_deleted', true)
+          .order('created_at', { ascending: false });
+
+        if (semesterFilter) {
+          query = query.eq('semester', parseInt(semesterFilter));
+        } else if (!adminUser) {
+          query = query.in('semester', accessibleSemesters);
+        }
+        if (typeFilter) query = query.eq('type', typeFilter);
+        if (searchFilter) query = query.ilike('title', `%${searchFilter}%`);
+        return query;
+      })(),
+      supabase.from('upload_ratings').select('upload_id, stars, user_id'),
+      supabase.from('upload_upvotes').select('upload_id, user_id, vote_type')
+    ]);
+
+    error = resourcesResult.error;
+    data = resourcesResult.data;
+    allRatings = ratingsResult.data || [];
+    allVotes = votesResult.data || [];
+
+    // Cache for 3 minutes
+    if (!error && data) {
+      setCache(cacheKey, { data, allRatings, allVotes }, 180000);
+    }
+  }
 
   // Build ratings lookup
   const ratingsMap = {};
@@ -190,7 +217,7 @@ async function loadResources(profile, accessibleSemesters) {
               return `
               <div style="display:flex;align-items:center;gap:8px;margin-top:var(--space-sm);" class="star-rating-row" data-upload-id="${r.id}">
                 <div class="star-interactive" style="display:flex;gap:2px;${alreadyRated ? '' : 'cursor:pointer;'}">
-                  ${[1,2,3,4,5].map(s => `
+                  ${[1, 2, 3, 4, 5].map(s => `
                     <i class="fa-${s <= rm.myRating ? 'solid' : 'regular'} fa-star ${alreadyRated ? '' : 'star-icon'}" 
                        ${alreadyRated ? '' : `data-star="${s}" data-upload="${r.id}"`}
                        style="font-size:0.85rem;color:${s <= rm.myRating ? '#ffcc00' : 'var(--text-muted)'};${alreadyRated ? 'opacity:0.85;' : 'cursor:pointer;transition:color 0.15s,transform 0.15s;'}"
@@ -269,6 +296,9 @@ async function loadResources(profile, accessibleSemesters) {
 
       if (rateErr) { showToast('Failed to rate: ' + rateErr.message, 'error'); return; }
 
+      // Invalidate cache
+      bustCache('browse_');
+
       const row = container.querySelector(`.star-rating-row[data-upload-id="${uploadId}"]`);
       if (row) {
         row.querySelectorAll('.star-icon, .fa-star').forEach(s => {
@@ -337,6 +367,10 @@ async function loadResources(profile, accessibleSemesters) {
 
       // Auto-moderation check
       const { data: removed } = await supabase.rpc('check_upload_automod', { p_upload_id: uploadId });
+      
+      // Invalidate cache so fresh counts show up on next render/search
+      bustCache('browse_');
+
       if (removed) {
         showToast('This resource has been auto-removed due to community downvotes.', 'info');
         const cardEl = document.getElementById(`resource-${uploadId}`);
@@ -425,12 +459,12 @@ async function loadResources(profile, accessibleSemesters) {
 
   // ── Admin delete handler ──
   window.deleteUpload = async (id, fileUrl) => {
-    if(!confirm('Are you strictly sure you want to permanently delete this resource and its associated file?')) return;
+    if (!confirm('Are you strictly sure you want to permanently delete this resource and its associated file?')) return;
     try {
       const urlObj = new URL(fileUrl);
       const pathParts = urlObj.pathname.split('/public/uploads/');
       if (pathParts.length > 1) {
-        const filePath = decodeURIComponent(pathParts[1]); 
+        const filePath = decodeURIComponent(pathParts[1]);
         const { error: storageError } = await supabase.storage.from('uploads').remove([filePath]);
         if (storageError) console.warn('Storage deletion error:', storageError);
       }
@@ -440,6 +474,10 @@ async function loadResources(profile, accessibleSemesters) {
     const { error } = await supabase.from('uploads').delete().eq('id', id);
     if (error) { showToast('Error deleting record: ' + error.message, 'error'); return; }
     showToast('Resource permanently deleted', 'success');
+    
+    // Invalidate browse cache
+    bustCache('browse_');
+    
     const btn = document.getElementById('filter-btn');
     if (btn) btn.click();
   };
@@ -580,7 +618,7 @@ function renderComment(comment, replies, profile) {
                 </button>
               </div>
             `;
-          }).join('')}
+  }).join('')}
         </div>
       ` : ''}
     </div>

@@ -3,6 +3,7 @@ import './styles/pages.css';
 import { router } from './router.js';
 import { supabase } from './utils/supabase.js';
 import { recordLogin } from './utils/auth.js';
+import { getCached, setCache, bustCache } from './utils/cache.js';
 import { renderLoginPage } from './pages/login.js';
 import { renderLandingPage } from './pages/landing.js';
 import { renderOnboardingPage } from './pages/onboarding.js';
@@ -104,12 +105,18 @@ router.beforeEach = async (to) => {
   }
 
   if (publicRoutes.includes(to)) return true;
-  
+
+  // Use cached auth check to avoid redundant API calls on rapid navigation
+  const cachedUser = getCached('auth_guard_user');
+  if (cachedUser) return true;
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     router.navigate('/login');
     return false;
   }
+  // Cache for 60s — the auth guard won't re-call getUser for 1 min
+  setCache('auth_guard_user', user, 60000);
   return true;
 };
 
@@ -295,15 +302,25 @@ function initAbsoluteSessionTimeout() {
 }
 
 // ── Tab Presence Logic ──
-// We no longer trigger a full re-render on visibilitychange to preserve user input (forms).
-// Instead, we just refresh the auth state if needed.
+// When the user switches back to this tab, bust stale caches and re-render
+// the current page so data loads fresh WITHOUT needing a manual refresh.
+let _lastVisibleTime = Date.now();
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible') {
-    // Check if session is still valid — this ensures we don't work with a stale session
+    const away = Date.now() - _lastVisibleTime;
+    // Check if session is still valid
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session && window.location.hash !== '#/login') {
-      import('./router.js').then(({ router }) => router.navigate('/login'));
+    if (!session && window.location.hash !== '#/login' && window.location.hash !== '#/') {
+      router.navigate('/login');
+      return;
     }
+    // If user was away for more than 30 seconds, bust caches and re-render
+    if (session && away > 30000) {
+      bustCache('all');
+      router.handleRoute(); // Re-renders the current page with fresh data
+    }
+  } else {
+    _lastVisibleTime = Date.now();
   }
 });
 

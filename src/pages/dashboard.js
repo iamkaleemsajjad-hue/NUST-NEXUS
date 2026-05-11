@@ -7,6 +7,7 @@ import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
 import { subscribeToTable } from '../utils/realtime.js';
+import { getCached, setCache, bustCache } from '../utils/cache.js';
 import gsap from 'gsap';
 import { checkAndShowRewardPopup } from '../components/reward-popup.js';
 import { showWelcomeTour } from '../components/welcome-tour.js';
@@ -20,11 +21,26 @@ export async function renderDashboardPage() {
   if (!profile || !profile.onboarding_complete) { router.navigate('/onboarding'); return; }
 
   const semester = calculateSemester(profile.admission_year);
-  const loginHistory = await getLoginHistory(user.id);
-  
-  // Get upload stats
-  const { count: uploadCount } = await supabase.from('uploads').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-  const { count: downloadCount } = await supabase.from('downloads').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+
+  // Use cached dashboard stats to avoid API calls on every visit
+  let loginHistory = getCached(`dash_login_${user.id}`);
+  let uploadCount = getCached(`dash_uploads_${user.id}`);
+  let downloadCount = getCached(`dash_downloads_${user.id}`);
+
+  if (loginHistory === null || uploadCount === null || downloadCount === null) {
+    const [lh, uc, dc] = await Promise.all([
+      getLoginHistory(user.id),
+      supabase.from('uploads').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('downloads').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+    ]);
+    loginHistory = lh;
+    uploadCount = uc.count;
+    downloadCount = dc.count;
+    // Cache for 2 minutes
+    setCache(`dash_login_${user.id}`, loginHistory, 120000);
+    setCache(`dash_uploads_${user.id}`, uploadCount, 120000);
+    setCache(`dash_downloads_${user.id}`, downloadCount, 120000);
+  }
 
   const initials = (profile.display_name || 'U').charAt(0).toUpperCase();
 

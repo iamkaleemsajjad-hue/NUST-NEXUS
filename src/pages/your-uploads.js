@@ -5,6 +5,7 @@ import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js
 import { showToast } from '../components/toast.js';
 import { router } from '../router.js';
 import { escapeHtml } from '../utils/sanitize.js';
+import { getCached, setCache, bustCache } from '../utils/cache.js';
 import gsap from 'gsap';
 
 let _uploadsUserId = null;
@@ -44,6 +45,13 @@ async function loadUserUploads(userId) {
   const container = document.getElementById('your-uploads-list');
   if (!container) return;
 
+  const cacheKey = `your_uploads_${userId}`;
+  const cached = getCached(cacheKey);
+  if (cached) {
+    renderUploadsList(container, cached, userId);
+    return;
+  }
+
   // Fetch uploads with related counts (exclude soft-deleted)
   const { data: uploads, error } = await supabase
     .from('uploads')
@@ -71,29 +79,44 @@ async function loadUserUploads(userId) {
     supabase.from('upload_ratings').select('upload_id, stars').in('upload_id', uploadIds),
     supabase.from('upload_comments').select('upload_id').eq('is_deleted', false).in('upload_id', uploadIds),
     supabase.from('upload_reports').select('upload_id, reason, status, created_at').in('upload_id', uploadIds),
-    supabase.from('upload_upvotes').select('upload_id, vote_type').in('upload_id', uploadIds),
+    supabase.from('upload_upvotes').select('upload_id, user_id, vote_type').in('upload_id', uploadIds),
   ]);
+
+  const data = {
+    uploads,
+    ratings: ratingsRes.data || [],
+    comments: commentsRes.data || [],
+    reports: reportsRes.data || [],
+    votes: votesRes.data || []
+  };
+
+  setCache(cacheKey, data, 60000); // 1 min cache
+  renderUploadsList(container, data, userId);
+}
+
+function renderUploadsList(container, data, userId) {
+  const { uploads, ratings: allRatings, comments: allComments, reports: allReports, votes: allVotes } = data;
 
   // Build lookup maps
   const ratingMap = {};
-  (ratingsRes.data || []).forEach(r => {
+  allRatings.forEach(r => {
     if (!ratingMap[r.upload_id]) ratingMap[r.upload_id] = [];
     ratingMap[r.upload_id].push(r.stars);
   });
 
   const commentCountMap = {};
-  (commentsRes.data || []).forEach(c => {
+  allComments.forEach(c => {
     commentCountMap[c.upload_id] = (commentCountMap[c.upload_id] || 0) + 1;
   });
 
   const reportMap = {};
-  (reportsRes.data || []).forEach(r => {
+  allReports.forEach(r => {
     if (!reportMap[r.upload_id]) reportMap[r.upload_id] = [];
     reportMap[r.upload_id].push(r);
   });
 
   const voteMap = {};
-  (votesRes.data || []).forEach(v => {
+  allVotes.forEach(v => {
     if (!voteMap[v.upload_id]) voteMap[v.upload_id] = { up: 0, down: 0 };
     voteMap[v.upload_id][v.vote_type]++;
   });
@@ -196,8 +219,8 @@ async function loadUserUploads(userId) {
   }).join('');
 
   // Animate cards
-  gsap.fromTo('.your-upload-card', 
-    { y: 20, opacity: 0 }, 
+  gsap.fromTo('.your-upload-card',
+    { y: 20, opacity: 0 },
     { y: 0, opacity: 1, duration: 0.4, stagger: 0.08, ease: 'power3.out' }
   );
 
@@ -232,6 +255,10 @@ async function loadUserUploads(userId) {
     }
 
     showToast('Upload removed. Admin will review for permanent deletion.', 'success');
+    
+    // Invalidate cache
+    bustCache('your_uploads_');
+
     const card = document.getElementById(`upload-card-${uploadId}`);
     if (card) {
       gsap.to(card, { height: 0, opacity: 0, marginBottom: 0, padding: 0, duration: 0.4, ease: 'power2.in', onComplete: () => card.remove() });

@@ -1,12 +1,17 @@
 import { supabase } from './supabase.js';
 import { ADMIN_EMAIL } from '../config.js';
 import { parseNustEmail } from './email-parser.js';
+import { getCached, setCache, bustCache } from './cache.js';
 
 /**
  * Get current authenticated user
  */
 export async function getCurrentUser() {
+  const cached = getCached('auth_current_user');
+  if (cached !== null) return cached;
+
   const { data: { user } } = await supabase.auth.getUser();
+  if (user) setCache('auth_current_user', user, 30000); // 30s TTL
   return user;
 }
 
@@ -14,6 +19,10 @@ export async function getCurrentUser() {
  * Get user profile from our profiles table
  */
 export async function getUserProfile(userId) {
+  const cacheKey = `auth_profile_${userId}`;
+  const cached = getCached(cacheKey);
+  if (cached !== null) return cached;
+
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -24,6 +33,7 @@ export async function getUserProfile(userId) {
     console.error('Profile fetch error:', error);
     return null;
   }
+  if (data) setCache(cacheKey, data, 60000); // 60s TTL
   return data;
 }
 
@@ -99,6 +109,8 @@ export async function signOut() {
         .eq('id', latest.id);
     }
   }
+  // Bust all caches on sign out
+  bustCache('all');
   await supabase.auth.signOut();
 }
 
