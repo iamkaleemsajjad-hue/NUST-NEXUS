@@ -122,6 +122,9 @@ router.beforeEach = async (to) => {
   return true;
 };
 
+// Flag: prevents onAuthStateChange from interfering during initial startup
+let _initDone = false;
+
 // Initialize app
 async function init() {
   // Ensure loader hides even if auth checks take long or fail
@@ -144,7 +147,10 @@ async function init() {
 
   // Handle initial route
   const hash = window.location.hash.slice(1);
-  if (!hash) {
+  if (!hash || hash === '/') {
+    // Always call handleRoute() directly for '/' so that reloading the page
+    // (where hash is already '#/' and navigate('/') would be a no-op) still
+    // renders the landing page before onAuthStateChange can fire.
     if (user) {
       // Check if onboarding is complete
       const { data: profile } = await supabase
@@ -161,11 +167,18 @@ async function init() {
         router.navigate('/dashboard');
       }
     } else {
-      router.navigate('/');
+      // Render the landing page directly — don't use navigate('/') because
+      // if the hash is already '#/' a hashchange won't fire, leaving the page
+      // blank until onAuthStateChange incorrectly redirects to /login.
+      window.location.hash = '/';
+      await router.handleRoute();
     }
   } else {
     router.handleRoute();
   }
+
+  // Mark init as complete so onAuthStateChange only handles genuinely new events
+  _initDone = true;
 
   // Listen for auth state changes
   supabase.auth.onAuthStateChange(async (event, session) => {
@@ -206,7 +219,11 @@ async function init() {
       if (user) {
         try { await recordLogin(user.id); } catch (e) { console.warn('recordLogin:', e); }
       }
-      if (user && (window.location.hash === '#/login' || window.location.hash === '#/' || window.location.hash === '')) {
+      // Only redirect to dashboard on a genuine new sign-in (after init() is done).
+      // Skip during startup — init() already handled the initial navigation so we
+      // don't accidentally override the landing page render on reload.
+      if (!_initDone) return;
+      if (user && (window.location.hash === '#/login' || window.location.hash === '#/')) {
         // Skip redirect if user is in password reset mode
         if (window.__resetPasswordMode) return;
         
