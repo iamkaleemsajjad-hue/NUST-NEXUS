@@ -669,11 +669,26 @@ async function submitUpload(profile) {
     });
 
     // ─── Step E: Award points for all uploads ───────────
-    await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${profile.id}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ points: (profile.points || 0) + pointsAwarded })
+    const { error: rpcError } = await supabase.rpc('award_upload_points', {
+      point_amount: pointsAwarded,
+      target_user_id: profile.id
     });
+
+    if (rpcError) {
+      console.error('Error awarding points:', rpcError);
+    } else {
+      profile.points = (profile.points || 0) + pointsAwarded;
+      
+      // Update header UI immediately
+      const pointsValueEl = document.getElementById('points-value');
+      if (pointsValueEl) {
+        pointsValueEl.textContent = profile.points;
+      }
+      
+      // Bust profile cache
+      const { bustCache } = await import('../utils/cache.js');
+      bustCache(`auth_profile_${profile.id}`);
+    }
 
     // ─── Done! ──────────────────────────────────────────
     updateProgress(100, 'Upload complete!');

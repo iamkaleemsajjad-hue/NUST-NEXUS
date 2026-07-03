@@ -441,6 +441,16 @@ async function loadResources(profile, accessibleSemesters) {
           return;
         }
         profile.points = rpcResult.points_remaining;
+        
+        // Update header UI immediately
+        const pointsValueEl = document.getElementById('points-value');
+        if (pointsValueEl) {
+          pointsValueEl.textContent = profile.points;
+        }
+
+        // Bust profile cache
+        const { bustCache } = await import('../utils/cache.js');
+        bustCache(`auth_profile_${profile.id}`);
       } else {
         await supabase.from('downloads').insert({ upload_id: uploadId, user_id: profile.id });
       }
