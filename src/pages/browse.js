@@ -452,6 +452,7 @@ async function loadResources(profile, accessibleSemesters) {
         const { bustCache } = await import('../utils/cache.js');
         bustCache(`auth_profile_${profile.id}`);
       } else {
+        // Admin: record download without points cost
         await supabase.from('downloads').insert({ upload_id: uploadId, user_id: profile.id });
       }
 
