@@ -189,11 +189,22 @@ async function init() {
       const user = session?.user;
       // Check if user is banned — force sign out immediately
       if (user) {
-        const { data: banCheck } = await supabase
+        let { data: banCheck } = await supabase
           .from('profiles')
           .select('is_banned, ban_reason')
           .eq('id', user.id)
           .single();
+
+        if (banCheck?.is_banned && banCheck?.ban_reason === 'Account Purged Permanently') {
+          // Auto-recover/migrate old deleted account format
+          await supabase.from('profiles').update({
+            is_banned: false,
+            ban_reason: null,
+            onboarding_complete: false
+          }).eq('id', user.id);
+          banCheck = { is_banned: false, ban_reason: null };
+        }
+
         if (banCheck?.is_banned) {
           await supabase.auth.signOut();
           // Show ban message on login page
