@@ -186,6 +186,7 @@ export async function completeOnboarding(userId, email, displayName, password) {
   // Update profile (store T&C acceptance with timestamp for legal proof)
   const { data, error } = await updateProfile(userId, {
     display_name: displayName,
+    email: email,            // Restore real email (important for returning deleted accounts)
     school: parsed.school,
     degree: parsed.degree,
     admission_year: parsed.year,

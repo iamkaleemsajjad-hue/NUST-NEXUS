@@ -179,13 +179,17 @@ async function loadDeleteRequests() {
     // For this prototype, we'll mark the profile as DELETED and scramble their email.
     // NOTE: True auth user deletion requires an Edge Function.
     
-    // Scramble the profile
+    // Scramble the profile but do NOT set is_banned — that would permanently
+    // block the user from ever re-registering with the same email.
+    // Instead reset onboarding_complete so if they come back they start fresh.
     const { error } = await supabase.from('profiles').update({
       display_name: 'Deleted User',
       email: `deleted-${id}@purged.local`,
       school: 'N/A',
-      is_banned: true,
-      ban_reason: 'Account Purged Permanently',
+      is_banned: false,
+      ban_reason: null,
+      onboarding_complete: false,
+      points: 0,
       deletion_requested_at: null
     }).eq('id', id);
 
