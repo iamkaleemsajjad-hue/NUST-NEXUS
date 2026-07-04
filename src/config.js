@@ -5,12 +5,16 @@
  * - SUPABASE_ANON_KEY is a PUBLIC key (safe for client-side) — it only grants
  *   access permitted by Row Level Security (RLS) policies. This is by Supabase design.
  * - The SERVICE_ROLE key must NEVER appear in client code — it bypasses all RLS.
- * - Fallback values below are used for GitHub Pages static deploys where env vars
- *   are baked at build time via Vite. For local dev, use .env (gitignored).
+ * - All values are loaded from environment variables. For local dev, use .env (gitignored).
+ *   For GitHub Pages deploys, set secrets in GitHub Actions (Settings → Secrets).
  * - All data security relies on RLS policies, not key secrecy.
  */
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co';
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '***REMOVED-ANON-KEY***';
+const _url = import.meta.env.VITE_SUPABASE_URL;
+const _key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+if (!_url) throw new Error('Missing env var: VITE_SUPABASE_URL — set it in .env or GitHub Actions secrets.');
+if (!_key) throw new Error('Missing env var: VITE_SUPABASE_ANON_KEY — set it in .env or GitHub Actions secrets.');
+export const SUPABASE_URL = _url;
+export const SUPABASE_ANON_KEY = _key;
 
 // Points Configuration
 export const POINTS = {
@@ -52,8 +56,10 @@ export const VALID_DOMAINS = [
   'student.nust.edu.pk',
 ];
 
-// Admin notification email (set in .env — defaults to correct email for GitHub pages)
-export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'iamkaleemsajjad@gmail.com';
+// Admin notification email — must be set via VITE_ADMIN_EMAIL in .env or GitHub Actions secrets
+const _adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+if (!_adminEmail) throw new Error('Missing env var: VITE_ADMIN_EMAIL — set it in .env or GitHub Actions secrets.');
+export const ADMIN_EMAIL = _adminEmail;
 
 // Upload types
 export const UPLOAD_TYPES = [
