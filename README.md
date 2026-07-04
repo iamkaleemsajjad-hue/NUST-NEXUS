@@ -40,7 +40,7 @@ The platform follows a modern, serverless architecture using a Single Page Appli
    ```
 3. Configure your `.env` variables:
    - `VITE_SUPABASE_URL`: Your Supabase project URL.
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon public key.
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`: Your Supabase publishable key (from Project Settings → API Keys).
    - `VITE_ADMIN_EMAIL`: The email address that should be granted administrative privileges.
 4. Install dependencies:
    ```bash

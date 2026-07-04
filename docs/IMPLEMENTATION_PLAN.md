@@ -4,7 +4,7 @@ This document is for developers continuing the work: security constraints, Supab
 
 ## Critical: secrets and rotation
 
-- **Never commit** `.env` or Supabase **service role** keys to git. The Vite client only ever uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (anon key is public by design but still protect your repo).
+- **Never commit** `.env` or Supabase **secret** keys to git. The Vite client only ever uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (publishable key is safe for browser use — all security is enforced by Row Level Security).
 
 ## Architecture (storage)
 
