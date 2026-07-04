@@ -1,19 +1,19 @@
 /**
  * Local smoke test only. Run: node --env-file=.env test-signup.mjs
- * Requires: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TEST_PASSWORD
+ * Requires: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, TEST_PASSWORD
  */
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_PUBLISHABLE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const TEST_PASSWORD = process.env.TEST_PASSWORD;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !TEST_PASSWORD) {
-  console.error('Missing env: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, TEST_PASSWORD');
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !TEST_PASSWORD) {
+  console.error('Missing env: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, TEST_PASSWORD');
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 async function run() {
   const email = `testuser_${Date.now()}@test.com`;

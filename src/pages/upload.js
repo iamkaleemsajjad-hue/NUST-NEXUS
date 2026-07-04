@@ -13,7 +13,7 @@ import { renderHeader, initHeader, setBreadcrumb } from '../components/header.js
 import { showToast } from '../components/toast.js';
 import { supabase } from '../utils/supabase.js';
 import { router } from '../router.js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, POINTS, UPLOAD_TYPES } from '../config.js';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, POINTS, UPLOAD_TYPES } from '../config.js';
 import { sanitizeText, validateFields, pickAllowedFields, checkRateLimit } from '../utils/sanitize.js';
 import gsap from 'gsap';
 
@@ -608,7 +608,7 @@ async function submitUpload(profile) {
     }
 
     const headers = {
-      'apikey': SUPABASE_ANON_KEY,
+      'apikey': SUPABASE_PUBLISHABLE_KEY,
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'Prefer': 'return=representation'

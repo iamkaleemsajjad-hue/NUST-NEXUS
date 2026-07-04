@@ -2,19 +2,19 @@
  * SCHOLAR NEXUS — Configuration
  *
  * SECURITY NOTES (OWASP):
- * - SUPABASE_ANON_KEY is a PUBLIC key (safe for client-side) — it only grants
+ * - SUPABASE_PUBLISHABLE_KEY is safe for client-side use — it only grants
  *   access permitted by Row Level Security (RLS) policies. This is by Supabase design.
- * - The SERVICE_ROLE key must NEVER appear in client code — it bypasses all RLS.
+ * - The secret key must NEVER appear in client code — it bypasses all RLS.
  * - All values are loaded from environment variables. For local dev, use .env (gitignored).
  *   For GitHub Pages deploys, set secrets in GitHub Actions (Settings → Secrets).
  * - All data security relies on RLS policies, not key secrecy.
  */
 const _url = import.meta.env.VITE_SUPABASE_URL;
-const _key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const _key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 if (!_url) throw new Error('Missing env var: VITE_SUPABASE_URL — set it in .env or GitHub Actions secrets.');
-if (!_key) throw new Error('Missing env var: VITE_SUPABASE_ANON_KEY — set it in .env or GitHub Actions secrets.');
+if (!_key) throw new Error('Missing env var: VITE_SUPABASE_PUBLISHABLE_KEY — set it in .env or GitHub Actions secrets.');
 export const SUPABASE_URL = _url;
-export const SUPABASE_ANON_KEY = _key;
+export const SUPABASE_PUBLISHABLE_KEY = _key;
 
 // Points Configuration
 export const POINTS = {
