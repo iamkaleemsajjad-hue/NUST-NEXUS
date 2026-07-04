@@ -599,7 +599,7 @@ async function submitUpload(profile) {
     updateProgress(85, 'Saving upload record...');
 
     // Extract auth token synchronously to bypass supabase-js library locks
-    const sToken = localStorage.getItem('sb-YOUR_PROJECT_REF-auth-token') || localStorage.getItem('supabase.auth.token');
+    const sToken = localStorage.getItem('sb-ebzfjxmdkrggwmpyhzna-auth-token') || localStorage.getItem('supabase.auth.token');
     const tokenData = sToken ? JSON.parse(sToken) : null;
     const accessToken = tokenData?.currentSession?.access_token || tokenData?.access_token;
     
